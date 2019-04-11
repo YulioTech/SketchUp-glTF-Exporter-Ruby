@@ -10,7 +10,7 @@ status: ongoing development
 Yulio SketchUp glTF Exporter is a Ruby based SketchUp plug-in that adds the ability to export arbitrary 3D scenes from SketchUp to the glTF 2.0 format. Both the embedded glTF (.gltf file extension) and binary glTF (.glb file extension) are supported.  
 
 ### Original Authors
-This project builds of top of the work done by David R White and Y C White, who were the initiators and original creators of the free-to-use [Khronos glTF exporter plug-in](https://extensions.sketchup.com/nl/content/gltf-exporter). The initial release is a carbon copy of that plug-in with no additions or modification, other than the renaming of the source files and modules. 
+This project builds of top of the work done by David R White and Y C White, who were the initiators and original creators of the free-to-use [Khronos glTF exporter plug-in](https://extensions.sketchup.com/nl/content/gltf-exporter). The initial release is a carbon copy of that plug-in with no additions or modification, other than the renaming of the source files and modules, and the addition of the MIT license.
 
 ### Installation and Usage 
 
