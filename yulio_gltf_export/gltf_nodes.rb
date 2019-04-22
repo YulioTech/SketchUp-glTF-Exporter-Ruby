@@ -26,7 +26,6 @@ Sketchup.require 'yulio_gltf_export/gltf_id'
 
 module Yulio
 	module GltfExporter
-	
 		class GltfNodes
 			
 			def initialize
@@ -57,6 +56,8 @@ module Yulio
 				if name != nil
 					node["name"] = name
 				end
+				
+
 				if use_matrix
 					mtx = matrix.to_a
 					# check if it is the identity matrix
@@ -78,6 +79,9 @@ module Yulio
 			
 			def add_mesh(node_id, mesh_id)
 				@nodes[node_id]["mesh"] = mesh_id
+			end
+			def add_camera(node_id, camera_id)
+				@nodes[node_id]["camera"]=camera_id
 			end
 			
 			def add_child(node_id, child_node_id)

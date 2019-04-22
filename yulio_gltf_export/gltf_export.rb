@@ -37,6 +37,7 @@ Sketchup.require 'yulio_gltf_export/gltf_nodes'
 Sketchup.require 'yulio_gltf_export/gltf_images'
 Sketchup.require 'yulio_gltf_export/mesh_geometry'
 Sketchup.require 'yulio_gltf_export/mesh_geometry_collect'
+Sketchup.require 'yulio_gltf_export/gltf_cameras'
 
 
 module Yulio
@@ -78,6 +79,7 @@ module Yulio
 				@textures = GltfTextures.new(@images)
 				@nodes = GltfNodes.new
 				@meshes = GltfMeshes.new
+				@cameras=GltfCameras.new(@nodes)
 				@materials = GltfMaterials.new(@textures)
 				@mesh_geometry = MeshGeometry.new
 				@mesh_geometry_collect = MeshGeometryCollect.new(@nodes,@meshes,@materials,@mesh_geometry,@use_matrix,@errors)
@@ -173,18 +175,19 @@ module Yulio
 				end
 				
 				begin
-					matrix = get_default_matrix()
-				
+					matrix = get_default_matrix() 
+					mtx=matrix.to_a
 					#puts 'Collating geometry and materials'
-					root_node_id = @nodes.add_node('root', matrix, @use_matrix)
+					root_node_id = @nodes.add_node('root', matrix, @use_matrix) 
 					@mesh_geometry_collect.collate_geometry(root_node_id,matrix, model.active_entities,nil,nil)
 					#puts 'Generating Buffers'
 					indexCount = write_buffers()
 					#puts 'Writing to file'
+					@cameras.add_camera_nodes
 					
 					asset = {
 						"version" => "2.0",
-						"generator" => "Sketchup glTF Exporter v1.3.0 by Yulio Technogies Inc."
+						"generator" => "Sketchup glTF Exporter v1.3.0 by Centaur"
 					}
 					
 					# set the glTF copyright field, use model.description
@@ -208,14 +211,14 @@ module Yulio
 					]
 					# this hash will be exported as the body of json used in the glTF file
 					export = {}
-					
 					export["asset"] = asset
 					export["scene"] = 0
 					export["scenes"] = scenes
 					export["samplers"] = samplers
 					export["nodes"] = @nodes.get_nodes
+					export["cameras"]=@cameras.get_cameras
 					export["materials"] = @materials.get_materials
-					
+										
 					images = @images.get_images
 					if(images.length > 0)
 						export["images"] = images
@@ -250,6 +253,7 @@ module Yulio
 					
 					summary << "\n " + TRANSLATE["nodes"] + ": " + export["nodes"].length.to_s
 					summary << "\n " + TRANSLATE["meshes"] + ": "+ export["meshes"].length.to_s
+					summary << "\n " + TRANSLATE["cameras"] + ": "+ export["cameras"].length.to_s
 					summary << "\n " + TRANSLATE["accessors"] + ": "+ export["accessors"].length.to_s
 					summary << "\n " + TRANSLATE["bufferViews"] + ": "+ export["bufferViews"].length.to_s
 					summary << "\n"
@@ -351,7 +355,6 @@ module Yulio
 				return trans
 			end
 
-			
 			# check if any index value requires a 32-bit index array instead of a 16-bit index arrays
 			def get_index_size(indices)
 				index_size = 2
