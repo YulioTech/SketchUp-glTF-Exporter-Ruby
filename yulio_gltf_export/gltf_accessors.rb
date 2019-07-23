@@ -30,8 +30,10 @@ module Yulio
 				@accessors = []
 			end
 			
+			attr_reader :accessors 
+
 			# Add an accessor to the accessor list
-			def add_accessor(bufferView, byteOffset, componentType,count, type, min,max)
+			def add_accessor(bufferView, byteOffset, componentType, count, type, min, max)
 				accessor =
 				{
 					"bufferView" => bufferView,
@@ -52,11 +54,6 @@ module Yulio
 				return index
 			end
 			
-			# retrieve the accessor list
-			def get_accessors
-				return @accessors
-			end
-
 		end
 	end
 end

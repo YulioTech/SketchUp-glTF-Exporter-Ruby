@@ -36,6 +36,8 @@ module Yulio
 				#@id_primitive = GltfId.new
 			end
 			
+			attr_reader :meshes 
+
 			def set_microsoft_mode(is_microsoft)
 				#@is_microsoft = is_microsoft
 			end
@@ -65,7 +67,7 @@ module Yulio
 			end
 			
 			# add_mesh_primitive is called during final buffer consolidation
-			def add_mesh_primitive(mesh_id, position_accessor_id, normal_accessor_id, tex_coord_accessor_id, indices_accessor_id, material_id)
+			def add_mesh_primitive(mesh_id, position_accessor_id, normal_accessor_id, uvs_accessor_id, indices_accessor_id, material_id)
 				primitive =
 				{
 					"attributes" => 
@@ -77,16 +79,12 @@ module Yulio
 					"mode" => 4,
 					"material" => material_id
 				}
-				if tex_coord_accessor_id != nil
-					primitive["attributes"]["TEXCOORD_0"] = tex_coord_accessor_id
+				if uvs_accessor_id != nil
+					primitive["attributes"]["TEXCOORD_0"] = uvs_accessor_id
 				end
 				@meshes[mesh_id]["primitives"].push(primitive)
 			end
 			
-			def get_meshes
-				return @meshes
-			end
-
 		end
 	end
 end

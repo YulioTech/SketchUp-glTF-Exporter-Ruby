@@ -11,9 +11,12 @@
 "materials"="Materials";
 "nodes"="Nodes";
 "meshes"="Meshes";
+"cameras"="Cameras";
 "accessors"="Accessors";
 "bufferViews"="Buffer Views";
+"buffers"="Buffers";
 "path"="Saved to Path";
 "triangles"="Triangles";
+"vertices"="Vertices";
 "unsupportedImage"="is an unsupported image type according to the glTF specification";
 "badUVW","Models containing perspective-mapped textures (UVW) are not supported";

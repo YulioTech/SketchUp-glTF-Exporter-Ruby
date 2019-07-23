@@ -30,8 +30,11 @@ module Yulio
 				@buffer_views = []
 			end
 			
-			def add_buffer_view(buffer,byteOffset, byteLength, target, byteStride)
+			attr_reader :buffer_views 
+
+			def add_buffer_view(buffer, byteOffset, byteLength, target, byteStride)
 				
+				# Create a new buffer_view
 				buffer_view = {}
 				buffer_view["buffer"] = buffer
 				if byteOffset != 0
@@ -44,15 +47,12 @@ module Yulio
 				if byteStride != nil
 					buffer_view["byteStride"] = byteStride
 				end
+
 				index = @buffer_views.length
 				@buffer_views.push(buffer_view)
 				
 				#puts 'Creating buffer view ' + index.to_s + ' for offset ' + byteOffset.to_s + ' and length ' + byteLength.to_s + ' bytes'
 				return index
-			end
-			
-			def get_buffer_views
-				return @buffer_views
 			end
 
 		end

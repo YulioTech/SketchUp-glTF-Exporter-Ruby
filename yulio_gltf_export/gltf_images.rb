@@ -21,7 +21,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #-----------------------------------------------------------------------------------
-
+$LOAD_PATH << File.expand_path(File.dirname(__FILE__))
+require "mini_magick"
 require 'tmpdir'
 
 module Yulio
@@ -29,12 +30,15 @@ module Yulio
 			
 		class GltfImages
 			
-			def initialize(buffer, buffer_views, errors)
+			def initialize(buffers, buffer_views, errors, buffer_index)
 				@errors = errors
-				@buffer = buffer
+				@buffers = buffers
 				@buffer_views = buffer_views
 				@images = []
+				@buffer_index = buffer_index
 			end
+			
+			attr_reader :images 
 
 			# Write image texture to the buffer, create a new buffer view, and add the image to the images array
 			def add_image_node(imageType, image_bytes)
@@ -47,8 +51,10 @@ module Yulio
 					@errors.push("image/" + imageType + ' ' + TRANSLATE('UnsupportedImage'))
 				end
 				
-				offset = @buffer.add_buffer(image_bytes, 1)
-				view = @buffer_views.add_buffer_view(0, offset, image_bytes.length,  nil,nil)
+				#puts "Writing image buffer with index " + @buffer_index.to_s
+				offset = @buffers.add_or_append_buffer(@buffer_index, image_bytes, 1)
+				view = @buffer_views.add_buffer_view(@buffer_index, offset, image_bytes.length, nil, nil)
+				#@buffer_index = @buffer_index + 1
 				
 				image =
 				{
@@ -77,6 +83,7 @@ module Yulio
 				texturewriter = Sketchup.create_texture_writer
 				
 				# get the extension of the texture filename
+				#file_name=face.material.texture.filename
 				ext = face.material.texture.filename.split('.').last
 				ext.downcase!
 
@@ -84,16 +91,33 @@ module Yulio
 				n = Random.rand(100000) + 100000
 				file =  File.join(Dir.tmpdir() , n.to_s + "."+ ext)
 				
+				
 				# load the texture, and write it to the file (why does this need to be separate operations?)
 				# todo: put out a feature request so unmangled textures can be read straight into memory
 				if face.class == Sketchup::Face
 					texturewriter.load face, true
-					texturewriter.write face, true, file
+					txtWrt=texturewriter.write face, true, file
 				else
 					texturewriter.load face
-					texturewriter.write face, file
+					txtWrt=texturewriter.write face, file
 				end
-				
+
+				if txtWrt!=0 # If failed use default texture instead
+					ext="jpg"
+					defaultTexture=$LOAD_PATH[5]+"/Grey_Texture.jpg"
+					file=file.split(".").first+"."+ext
+					FileUtils.copy(defaultTexture,file)			
+				end
+
+				if ext != 'jpg' && ext!= 'png'
+					type="png"
+					temp_file=MiniMagick::Image.open(file)
+					File.delete(file)
+					temp_file.format(type)		
+					file=temp_file.path
+					ext=file.split(".").last
+					ext.downcase!	
+				end
 				
 				# read the file into memory
 				bytes = File.binread(file)
@@ -102,10 +126,6 @@ module Yulio
 				File.delete(file)
 				
 				return ext, bytes
-			end
-			
-			def get_images
-				return @images
 			end
 
 		end

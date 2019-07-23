@@ -33,16 +33,16 @@ module Yulio
 				@textures = []
 				@textures_hash = {}
 			end
+
+			attr_reader :textures 
 			
 			def add_texture(face)
-				if(face.material == nil)
+				if (face.material == nil || face.material.texture == nil) 
 					return nil
 				end
-				if(face.material.texture == nil)
-					return nil
-				end
+
 				index = @textures_hash[face.material.texture]
-				if(index != nil)
+				if (index != nil)
 					return index
 				end
 				
@@ -59,6 +59,7 @@ module Yulio
 				#end
 				@textures_hash[texture] = index
 				@textures.push(texture)
+				
 				return index
 			end
 			
@@ -78,10 +79,6 @@ module Yulio
 			#	return index
 			#end
 			
-			def get_textures
-				return @textures
-			end
-
 		end
 
 	end

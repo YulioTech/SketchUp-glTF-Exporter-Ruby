@@ -38,6 +38,8 @@ module Yulio
 				@defaultMaterial = -1
 			end
 			
+			attr_reader :materials 
+
 			def set_microsoft_mode(is_microsoft)
 				#@is_microsoft = is_microsoft
 			end
@@ -207,12 +209,14 @@ module Yulio
 				
 				index = @materials_hash[material]
 				
-				if index != nil
+				if (index != nil)
 					return index
 				end
-				if(material == nil)
+
+				if (material == nil)
 					if @defaultMaterial == -1
-						@defaultMaterial = add_material_node("default material",0.5,0.5,0.75,1.0, 0.1,0.5,true,nil)
+						#@defaultMaterial = add_material_node("default material",0.5,0.5,0.75,1.0, 0.1,0.5,true,nil)
+						@defaultMaterial = add_material_node("default material",1,1,1,1.0, 0.1,0.5,true,nil) #Use white (not blue) as a default material
 					end
 					return @defaultMaterial
 				end
@@ -257,18 +261,12 @@ module Yulio
 					end
 				end
 				
-				if(material.texture != nil)
+				if (material.texture != nil)
 					texture_id = @textures.add_texture(face)
 					return add_material_node(name, r,g,b,a, metallicFactor, roughnessFactor, double_sided, texture_id)
 				end
 
 				return add_material_node(name, r,g,b,a, metallicFactor, roughnessFactor, double_sided, nil)
-			end
-			
-			
-			# return the list of materials
-			def get_materials
-				return @materials
 			end
 
 		end

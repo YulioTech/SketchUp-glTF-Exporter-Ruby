@@ -27,19 +27,21 @@ module Yulio
     module GltfExporter
         class GltfCameras
             def initialize(nodes)
-                @nodes=nodes
-                @cameras=[]
-                @id_gen=GltfId.new
+                @nodes = nodes
+                @cameras = []
+                @id_gen = GltfId.new
             end
 
-            def add_camera_type(name)
+            attr_reader :cameras 
+
+            def add_camera_type(name,fov)
                 camera={
                         "perspective"=>
                         {
-                            "yfov"=>0.6108646988868713,
+                            "yfov"=>fov,
                             "zfar"=>25.399999618530278,
                             "znear"=>0.02539999969303608,
-                            "aspectRatio"=>2
+                            "aspectRatio"=>1.5
                         },
                         "type"=>"perspective",
                     "name"=>name
@@ -49,6 +51,7 @@ module Yulio
                 return index
 
             end
+
             def create_camera_matrix(camera)
                 originM=Geom::Point3d.new(camera.eye.x.to_m,camera.eye.y.to_m,camera.eye.z.to_m)
                 matrix=Geom::Transformation.axes(originM,camera.xaxis,camera.yaxis,camera.zaxis.reverse)
@@ -59,20 +62,26 @@ module Yulio
             end
 
             def add_camera_nodes
-                group_node_id=create_camera_group
-                pages=Sketchup.active_model.pages
+                pages = Sketchup.active_model.pages
+                if (pages.length == 0)
+                    return
+                end
+
+                group_node_id = create_camera_group
+                
                 pages.each do |page|
-                    name=page.label
-                    camera=page.camera
-                    matrix=create_camera_matrix(camera)
-                    camera_id=add_camera_type(name+"_camera")
-                    node_id=@nodes.add_node(name,matrix,true)
-                    @nodes.add_camera(node_id,camera_id)
-                    @nodes.add_child(group_node_id,node_id)
+                    name = page.label
+                    camera = page.camera
+                    matrix = create_camera_matrix(camera)
+                    camera_id = add_camera_type(name + "_camera",camera.fov.degrees)
+                    node_id = @nodes.add_node(name, matrix, true)
+                    @nodes.add_camera(node_id, camera_id)
+                    @nodes.add_child(group_node_id, node_id)
                 end
             end
+
             def create_camera_group
-                matrix=[    
+                matrix = [    
                     1.0,
                     0.0,
                     0.0,
@@ -90,16 +99,13 @@ module Yulio
                     0.0,
                     1.0
                 ]
-                node_id=@nodes.add_node("Camera Group",matrix,true)
-                @nodes.add_child(0,node_id)
+
+                node_id = @nodes.add_node("Camera Group", matrix, true)
+                @nodes.add_child(0, node_id)
+
                 return node_id
-
             end
 
-            def get_cameras
-                return @cameras
-
-            end
         end
     end
     

@@ -34,6 +34,8 @@ module Yulio
 				#@is_microsoft = false
 			end
 			
+			attr_reader :nodes 
+
 			def set_microsoft_mode(is_microsoft)
 				#@is_microsoft = is_microsoft
 			end
@@ -56,8 +58,6 @@ module Yulio
 				if name != nil
 					node["name"] = name
 				end
-				
-
 				if use_matrix
 					mtx = matrix.to_a
 					# check if it is the identity matrix
@@ -80,6 +80,7 @@ module Yulio
 			def add_mesh(node_id, mesh_id)
 				@nodes[node_id]["mesh"] = mesh_id
 			end
+
 			def add_camera(node_id, camera_id)
 				@nodes[node_id]["camera"]=camera_id
 			end
@@ -90,10 +91,6 @@ module Yulio
 					node["children"] = []
 				end
 				node["children"].push(child_node_id)
-			end
-			
-			def get_nodes
-				return @nodes
 			end
 			
 		end
