@@ -21,7 +21,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #-----------------------------------------------------------------------------------
-$LOAD_PATH << File.expand_path(File.dirname(__FILE__))
 require "mini_magick"
 require 'tmpdir'
 
@@ -104,7 +103,7 @@ module Yulio
 
 				if txtWrt!=0 # If failed use default texture instead
 					ext="jpg"
-					defaultTexture=$LOAD_PATH[5]+"/Grey_Texture.jpg"
+					defaultTexture=__dir__+"/Grey_Texture.jpg"
 					file=file.split(".").first+"."+ext
 					FileUtils.copy(defaultTexture,file)			
 				end
