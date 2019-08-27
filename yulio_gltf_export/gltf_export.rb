@@ -25,9 +25,10 @@
 require "json"
 require 'langhandler'
 require 'sketchup'
+require 'profiler'
 
 Sketchup.require 'yulio_gltf_export/gltf_nodes'
-Sketchup.require 'yulio_gltf_export/gltf_buffer'
+Sketchup.require 'yulio_gltf_export/gltf_buffers'
 Sketchup.require 'yulio_gltf_export/gltf_buffer_views'
 Sketchup.require 'yulio_gltf_export/gltf_accessors'
 Sketchup.require 'yulio_gltf_export/gltf_meshes'
@@ -37,6 +38,7 @@ Sketchup.require 'yulio_gltf_export/gltf_nodes'
 Sketchup.require 'yulio_gltf_export/gltf_images'
 Sketchup.require 'yulio_gltf_export/mesh_geometry'
 Sketchup.require 'yulio_gltf_export/mesh_geometry_collect'
+Sketchup.require 'yulio_gltf_export/gltf_cameras'
 
 
 module Yulio
@@ -69,15 +71,20 @@ module Yulio
 				@use_matrix = false
 				
 				@errors = []
+
+				@current_buffer_index = 0
 				
 				# construct the needed objects
-				@buffer = GltfBuffer.new
+				@buffers = GltfBuffers.new
 				@buffer_views = GltfBufferViews.new
 				@accessors = GltfAccessors.new
-				@images = GltfImages.new(@buffer,@buffer_views,@errors)
+				@images = GltfImages.new(@buffers, @buffer_views, @errors, @current_buffer_index)
+				@buffers.add_or_append_buffer(@current_buffer_index, '', 1) #Init an empty buffer to keep the indices consistent (since there might be no textures exported)
+				#@current_buffer_index = @current_buffer_index + 1 #Increment the current buffer index whenever we want to create a new separate buffer (e.g. for textures, geometry, etc.)
 				@textures = GltfTextures.new(@images)
 				@nodes = GltfNodes.new
 				@meshes = GltfMeshes.new
+				@cameras=GltfCameras.new(@nodes)
 				@materials = GltfMaterials.new(@textures)
 				@mesh_geometry = MeshGeometry.new
 				@mesh_geometry_collect = MeshGeometryCollect.new(@nodes,@meshes,@materials,@mesh_geometry,@use_matrix,@errors)
@@ -173,18 +180,38 @@ module Yulio
 				end
 				
 				begin
+			
+					#Test code ->
+					enable_profiler = false
+					if enable_profiler
+					mode = "wb"
+					file = File.open("e:/Downloads/glTF_exporter_profile.txt", mode)
+					Profiler__::start_profile
+					puts "Profiling started at " + Time.now.getutc.to_s + " for " + filename
+					file.write("Profiling started at " + Time.now.getutc.to_s + " for " + filename + "\n")
+					end
+					#<-
+
+					#Test code ->
+					starting = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+					#<-
+
 					matrix = get_default_matrix()
 				
 					#puts 'Collating geometry and materials'
 					root_node_id = @nodes.add_node('root', matrix, @use_matrix)
-					@mesh_geometry_collect.collate_geometry(root_node_id,matrix, model.active_entities,nil,nil)
+					@mesh_geometry_collect.collate_geometry(root_node_id, matrix, model.active_entities, nil, nil)
+					
 					#puts 'Generating Buffers'
-					indexCount = write_buffers()
+					index_count = prepare_buffers_for_writing()
+					
 					#puts 'Writing to file'
+					@cameras.add_camera_nodes
 					
 					asset = {
 						"version" => "2.0",
-						"generator" => "Sketchup glTF Exporter v1.3.0 by Yulio Technogies Inc."
+						"minVersion" => "2.0", #Min version required to load the file (optional field)
+						"generator" => "Sketchup glTF Exporter v2.2.0 by Yulio Technogies Inc."
 					}
 					
 					# set the glTF copyright field, use model.description
@@ -201,60 +228,81 @@ module Yulio
 						}
 					]
 					
-					samplers =
-					[
-						{
-						}
-					]
+					#Samplers are not used in the current implementation, so no need to add them
+					
 					# this hash will be exported as the body of json used in the glTF file
 					export = {}
-					
 					export["asset"] = asset
 					export["scene"] = 0
 					export["scenes"] = scenes
-					export["samplers"] = samplers
-					export["nodes"] = @nodes.get_nodes
-					export["materials"] = @materials.get_materials
-					
-					images = @images.get_images
-					if(images.length > 0)
-						export["images"] = images
+					export["nodes"] = @nodes.nodes
+					#glTF spec doesn't allow for an empty camera list (or any empty list for that matter) => the validator will throw an error in such a case
+					if (@cameras.cameras.length > 0)
+						export["cameras"] = @cameras.cameras
 					end
-					textures = @textures.get_textures
-					if(textures.length > 0)
-						export["textures"] = textures
+					export["materials"] = @materials.materials
+					
+					if (@images.images.length > 0)
+						export["images"] = @images.images
+					end
+
+					if (@textures.textures.length > 0)
+						export["textures"] = @textures.textures
+						#All textures are using the default 0-indexed sampler in the current implementation
+						samplers =
+						[
+							{
+							}
+						]
+						export["samplers"] = samplers
 					end
 					
-					export["meshes"] = @meshes.get_meshes
-					export["accessors"] = @accessors.get_accessors
-					export["bufferViews"] = @buffer_views.get_buffer_views
+					export["meshes"] = @meshes.meshes
+					export["accessors"] = @accessors.accessors
+					export["bufferViews"] = @buffer_views.buffer_views
 					
-					if(is_binary)
+					if (is_binary)
 						write_glb(filename, export)
 					else
 						write_gltf(filename, export)
 					end
 					
-				
+					#Test code ->
+					ending = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+					elapsed = ending - starting
+					puts "glTF export to " + filename + " took " + elapsed.to_s + " seconds"
+					#return
+					#<-
+
+					#Test code ->
+					if enable_profiler
+					puts "Profiling stopped at " + Time.now.getutc.to_s
+					file.write("Profiling stopped at " + Time.now.getutc.to_s + "\n----------------------------------------------------------------\n")
+					Profiler__::stop_profile
+					#Profiler__::print_profile($stderr)
+					Profiler__::print_profile(file)
+
+					#puts file.read
+					file.close()
+					end
+					#<-
 				
 					summary = TRANSLATE["exportSummary"]
 					summary << "\n"
 					
-					if(images.length > 0)
-						summary << "\n " + TRANSLATE["images"] + ": "+ export["images"].length.to_s
-					end
-					if(textures.length > 0)
-						summary << "\n " + TRANSLATE["textures"] + ": "+ export["textures"].length.to_s
-					end
-					summary << "\n " + TRANSLATE["materials"] + ": "+ export["materials"].length.to_s
+					summary << "\n " + TRANSLATE["images"] + ": " + (export["images"] != nil ? export["images"].length.to_s : 0.to_s)
+					summary << "\n " + TRANSLATE["textures"] + ": " + (export["textures"] != nil ? export["textures"].length.to_s : 0.to_s)
+					summary << "\n " + TRANSLATE["materials"] + ": " + export["materials"].length.to_s
 					
 					summary << "\n " + TRANSLATE["nodes"] + ": " + export["nodes"].length.to_s
-					summary << "\n " + TRANSLATE["meshes"] + ": "+ export["meshes"].length.to_s
-					summary << "\n " + TRANSLATE["accessors"] + ": "+ export["accessors"].length.to_s
-					summary << "\n " + TRANSLATE["bufferViews"] + ": "+ export["bufferViews"].length.to_s
+					summary << "\n " + TRANSLATE["meshes"] + ": " + export["meshes"].length.to_s
+					summary << "\n " + TRANSLATE["cameras"] + ": " + (export["cameras"] != nil ? export["cameras"].length.to_s : 0.to_s)
+					summary << "\n " + TRANSLATE["accessors"] + ": " + export["accessors"].length.to_s
+					summary << "\n " + TRANSLATE["bufferViews"] + ": " + export["bufferViews"].length.to_s
+					summary << "\n " + TRANSLATE["buffers"] + ": " + export["buffers"].length.to_s
 					summary << "\n"
-					summary << "\n" + TRANSLATE["triangles"] + ": "+ (indexCount/3).to_s
-					summary << "\n" + TRANSLATE["vertices"] + ": "+ (@mesh_geometry.get_vertex_count).to_s
+					summary << "\n" + TRANSLATE["triangles"] + ": " + (index_count/3).to_s
+					summary << "\n" + TRANSLATE["vertices"] + ": " + (@mesh_geometry.vertex_count).to_s
 					summary << "\nPath: "+ filename
 					summary << "\n"
 					@errors.each { |error|
@@ -274,12 +322,13 @@ module Yulio
 						UI.messagebox(msg, MB_MULTILINE, TRANSLATE["title"])
 					end
 					return msg
+
 				end
 			end
 
 			
 			def write_gltf(filename, export)
-				export["buffers"] = @buffer.encode_buffers()
+				export["buffers"] = @buffers.encode_buffers()
 				json = JSON.pretty_generate(export)
 				file = File.open(filename, "wb")
 				file.write(json)
@@ -291,7 +340,7 @@ module Yulio
 			#json length:129392
 
 			def write_glb(filename, export)
-				buffers, bin = @buffer.get_buffers()
+				buffers, bins = @buffers.get_buffers()
 				export["buffers"] = buffers
 				
 				json = export.to_json
@@ -301,9 +350,14 @@ module Yulio
 					json = json << ' '
 					json_len = json_len + 1
 				end
-				while(bin.length % 4 != 0)
-					bin = bin << 0
-				end
+
+				bins_length = 0
+				bins.each { |bin|
+					while(bin.length % 4 != 0)
+						bin = bin << 0
+					end
+					bins_length = bins_length + bin.length
+				}
 				
 				header = 0x46546C67
 				jsonContent = 0x4E4F534A
@@ -312,14 +366,14 @@ module Yulio
 				headerArray = []
 				headerArray.push(header)
 				headerArray.push(2)
-				headerArray.push(bin.length + json_len + 28)
+				headerArray.push(bins_length + json_len + 28)
 				
 				headerArray.push(json_len)
 				headerArray.push(jsonContent)
 				header = headerArray.pack('V*')
 				
 				bufferArray = []
-				bufferArray.push(bin.length)
+				bufferArray.push(bins_length)
 				bufferArray.push(binaryBuffer)
 				buffer = bufferArray.pack('V*')
 				
@@ -333,7 +387,9 @@ module Yulio
 				file.write(json)
 				
 				file.write(buffer)
-				file.write(bin)
+				bins.each { |bin|
+					file.write(bin)
+				}
 				file.close()
 			end
 			
@@ -351,7 +407,6 @@ module Yulio
 				return trans
 			end
 
-			
 			# check if any index value requires a 32-bit index array instead of a 16-bit index arrays
 			def get_index_size(indices)
 				index_size = 2
@@ -370,39 +425,37 @@ module Yulio
 			end
 			
 			
-			def add_buffer_view(indices)
+			def add_buffer_view_for_indices(indices, buffer_index)
 				index_size = get_index_size(indices)	
 				if index_size == 4
 					packed = indices.pack 'V*'	# 32-bit indexes
-					offset = @buffer.add_buffer(packed, 4)
+					offset = @buffers.add_or_append_buffer(buffer_index, packed, 4)
 					indexType = 5125	# 32-bit ulong
 					byte_count = 4
-				end
-				if index_size == 2
+				elsif index_size == 2
 					packed = indices.pack 'v*'	# 16-bit
-					offset = @buffer.add_buffer(packed, 2)	# was 2
+					offset = @buffers.add_or_append_buffer(buffer_index, packed, 2)	# was 2
 					indexType = 5123	# 16-bit ushort
 					byte_count = 2
-				end
-				if index_size == 1
+				elsif index_size == 1
 					packed = indices.pack 'C*'	# 8-bit
-					offset = @buffer.add_buffer(packed, 1)	# 1 byte alignment?
+					offset = @buffers.add_or_append_buffer(buffer_index, packed, 1)	# 1 byte alignment?
 					indexType = 5121	# 8-bit ubyte
 					byte_count = 1
 				end
 				
-				buffer_view = @buffer_views.add_buffer_view(0, offset, packed.length, 34963, nil)
-				return buffer_view, indexType,byte_count
+				buffer_view_index = @buffer_views.add_buffer_view(buffer_index, offset, packed.length, 34963, nil)
+				return buffer_view_index, indexType, byte_count
 			end
 			
 			
 			
 			
-			def pack_buffer(entries, glType, strideBytes)
+			def pack_buffer(entries, glType, strideBytes, buffer_index = 0)
 				if glType == GL_FLOAT
 					packed = entries.pack 'e*'	# e = single precision, little endian
-					buffer = @buffer.add_buffer(packed, strideBytes)
-					buffer_view = @buffer_views.add_buffer_view(0, buffer, packed.length, 34962, strideBytes)
+					buffer_offset = @buffers.add_or_append_buffer(buffer_index, packed, strideBytes)
+					buffer_view = @buffer_views.add_buffer_view(buffer_index, buffer_offset, packed.length, 34962, strideBytes)
 					return buffer_view
 				end
 				
@@ -420,120 +473,54 @@ module Yulio
 						byte_array.push(b)
 					}
 					packed = byte_array.pack 'C*'	# pack as bytes
-					buffer = @buffer.add_buffer(packed, 4)
-					buffer_view = @buffer_views.add_buffer_view(0, buffer, packed.length, 34962, strideBytes)
+					buffer_offset = @buffers.add_or_append_buffer(buffer_index, packed, 4)
+					buffer_view = @buffer_views.add_buffer_view(buffer_index, buffer_offset, packed.length, 34962, strideBytes)
 					return buffer_view
 				end
 			end
 			
 			
 			
-			def write_buffers()
-			
-				geometry_positions, geometry_normals, geometry_tex_positions, geometry_tex_normals, geometry_tex_coords = @mesh_geometry.get_geometry
-				
-				if geometry_positions.length > 0
-					# the model contains non-textured positions and normals
-					#bin_positions = geometry_positions.pack 'e*'	# e = single precision, little endian
-					#bin_normals =  geometry_normals.pack 'e*'
-					
-					
-					#position_buffer = @buffer.add_buffer(bin_positions, 12)
-					#normals_buffer = @buffer.add_buffer(bin_normals, 12)
-					
-					#position_buffer_view_index = @buffer_views.add_buffer_view(0, position_buffer, bin_positions.length, 34962, 12)
-					#normals_buffer_view_index  = @buffer_views.add_buffer_view(0, normals_buffer, bin_normals.length, 34962, 12)
-					
-					position_buffer_view_index = pack_buffer(geometry_positions, GL_FLOAT, 12)
-					normals_buffer_view_index = pack_buffer(geometry_normals, GL_FLOAT, 12)
-					
-					minp,maxp = write_min_max_vec3(geometry_positions)
-					#minn,maxn = write_min_max_vec3(geometry_normals)
-					
-					positions_accessor = @accessors.add_accessor(position_buffer_view_index,0,GL_FLOAT,geometry_positions.length / 3,"VEC3",minp,maxp)
-					normals_accessor = @accessors.add_accessor(normals_buffer_view_index,0,GL_FLOAT,geometry_normals.length / 3,"VEC3",nil,nil)
-				end
-				
-				if geometry_tex_positions.length > 0
-					# the model contains positions, normals, and texture coordinates
-					#bin_tex_positions = geometry_tex_positions.pack 'e*'
-					#bin_tex_normals =  geometry_tex_normals.pack 'e*'
-					#bin_tex_coords = geometry_tex_coords.pack 'e*'
-					
-					#tex_positions_buffer = @buffer.add_buffer(bin_tex_positions, 12)
-					#tex_normals_buffer = @buffer.add_buffer(bin_tex_normals, 12)
-					#tex_coords_buffer = @buffer.add_buffer(bin_tex_coords, 8)
-					
-					#tex_position_buffer_view_index = @buffer_views.add_buffer_view(0, tex_positions_buffer, bin_tex_positions.length, 34962, 12)
-					#tex_normals_buffer_view_index  = @buffer_views.add_buffer_view(0,tex_normals_buffer, bin_tex_normals.length, 34962, 12)
-					#tex_coords_buffer_view_index  = @buffer_views.add_buffer_view(0,tex_coords_buffer, bin_tex_coords.length, 34962, 8)
+			def prepare_buffers_for_writing()
+				#puts 'Preparing all the buffers, bufferviews, accessors, etc. to be written to the output file.'
 
-					tex_position_buffer_view_index = pack_buffer(geometry_tex_positions, GL_FLOAT, 12)
-					tex_normals_buffer_view_index = pack_buffer(geometry_tex_normals, GL_FLOAT, 12)
-					tex_coords_buffer_view_index = pack_buffer(geometry_tex_coords, GL_FLOAT, 8)
-					#tex_coords_buffer_view_index = pack_buffer(geometry_tex_coords, GL_UNSIGNEDBYTE, 2)
-					
-					minp,maxp = write_min_max_vec3(geometry_tex_positions)
-					#minn,maxn = write_min_max_vec3(geometry_tex_normals)
-					
-					mint,maxt = write_min_max_vec2(geometry_tex_coords)
-					#mint,maxt = write_min_max_vec2_normalized_byte(geometry_tex_coords)
-					
-					tex_positions_accessor = @accessors.add_accessor(tex_position_buffer_view_index,0,GL_FLOAT,geometry_tex_positions.length / 3,"VEC3",minp,maxp)
-					tex_normals_accessor = @accessors.add_accessor(tex_normals_buffer_view_index,0,GL_FLOAT,geometry_tex_normals.length / 3,"VEC3",nil,nil)
-					tex_coordsAccessor = @accessors.add_accessor(tex_coords_buffer_view_index,0,GL_FLOAT,geometry_tex_coords.length / 2,"VEC2",nil,nil)
-				end
-				
-				buffer_offsets = []
-				
-				all_indices =[]
-				all_tex_indices = []
-				meshIds = @mesh_geometry_collect.get_mesh_ids()
-				meshIds.each { |meshId|
-					materials = @mesh_geometry_collect.get_mesh_materials(meshId)
-					materials.each { |materialId|
-						indices = @mesh_geometry_collect.get_mesh_indices(meshId, materialId)
-						
-						if(@mesh_geometry_collect.is_mesh_textured(meshId,materialId))
-							buffer_offsets.push(all_tex_indices.length)
-							all_tex_indices = all_tex_indices + indices
-						else
-							buffer_offsets.push(all_indices.length)
-							all_indices = all_indices + indices
+				index_count = 0
+
+				@mesh_geometry.meshes_data.each_key { |mesh_id|
+					@mesh_geometry.meshes_data[mesh_id].each_key { |material_id|
+						mesh_data = @mesh_geometry.meshes_data[mesh_id][material_id]
+						position_buffer_view_index = pack_buffer(mesh_data.positions, GL_FLOAT, 12, @current_buffer_index)
+						normals_buffer_view_index = pack_buffer(mesh_data.normals, GL_FLOAT, 12, @current_buffer_index)
+
+						minp,maxp = write_min_max_vec3(mesh_data.positions)
+
+						positions_accessor = @accessors.add_accessor(position_buffer_view_index,0,GL_FLOAT,mesh_data.positions.length / 3,"VEC3",minp,maxp)
+						normals_accessor = @accessors.add_accessor(normals_buffer_view_index,0,GL_FLOAT,mesh_data.normals.length / 3,"VEC3",nil,nil)
+
+						if (mesh_data.has_texture)
+							uvs_buffer_view_index = pack_buffer(mesh_data.uvs, GL_FLOAT, 8, @current_buffer_index)
+							mint,maxt = write_min_max_vec2(mesh_data.uvs)
+							uvs_accessor = @accessors.add_accessor(uvs_buffer_view_index,0,GL_FLOAT,mesh_data.uvs.length / 2,"VEC2",nil,nil)
 						end
+						#@current_buffer_index = @current_buffer_index + 1
+
+						index_count = index_count + mesh_data.indices.length
+
+						#puts "Adding buffer view for " + mesh_data.indices.length.to_s + " indices for mesh with ID " + mesh_id.to_s + " and material ID " + material_id.to_s
+						buffer_view_index,index_type,byte_count = add_buffer_view_for_indices(mesh_data.indices, @current_buffer_index)
+
+						if (mesh_data.has_texture)
+							iAccess = @accessors.add_accessor(buffer_view_index, 0 * byte_count, index_type, mesh_data.indices.size, "SCALAR", nil, nil)
+							@meshes.add_mesh_primitive(mesh_id, positions_accessor, normals_accessor, uvs_accessor, iAccess, material_id)
+						else
+							iAccess = @accessors.add_accessor(buffer_view_index, 0 * byte_count, index_type, mesh_data.indices.size, "SCALAR", nil, nil)
+							@meshes.add_mesh_primitive(mesh_id, positions_accessor, normals_accessor, nil, iAccess, material_id)
+						end
+
 					}
 				}
-				
-				indexCount = all_indices.length + all_tex_indices.length
-				
-				# Add a single buffer view for all non-textured meshes
-				if all_indices.length > 0
-					buf1,t1,cb1 = add_buffer_view(all_indices)
-				end
-				
-				# Add a single buffer view for indexes of all textured meshes
-				if all_tex_indices.length > 0
-					buf2,t2,cb2 = add_buffer_view(all_tex_indices)
-				end
-				
-				i = 0
-				meshIds.each { |meshId|
-					materials = @mesh_geometry_collect.get_mesh_materials(meshId)
-					materials.each { |materialId|
-						indices = @mesh_geometry_collect.get_mesh_indices(meshId, materialId)
-						
-						if(@mesh_geometry_collect.is_mesh_textured(meshId,materialId))
-							iAccess = @accessors.add_accessor(buf2,buffer_offsets[i] * cb2,t2,indices.size,"SCALAR",nil,nil)
-							@meshes.add_mesh_primitive(meshId, tex_positions_accessor, tex_normals_accessor, tex_coordsAccessor, iAccess, materialId)
-						else
-							iAccess = @accessors.add_accessor(buf1,buffer_offsets[i] * cb1,t1,indices.size,"SCALAR",nil,nil)
-							@meshes.add_mesh_primitive(meshId, positions_accessor, normals_accessor, nil, iAccess, materialId)
-						end
-						i = i + 1
-						
-					}
-				}
-				return indexCount
+
+				return index_count
 			end
 
 			

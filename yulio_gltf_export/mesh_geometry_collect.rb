@@ -26,7 +26,7 @@ require 'sketchup'
 
 module Yulio
 	module GltfExporter
-	
+
 		class MeshGeometryCollect
 		
 			def initialize(nodes,meshes,materials,mesh_geometry,use_matrix,errors)
@@ -40,9 +40,6 @@ module Yulio
 				
 				@use_matrix = use_matrix
 				@mesh_per_material = false
-				
-				@indicies_per_material_per_mesh = {}
-				@mesh_textured = {}
 			end
 			
 
@@ -102,47 +99,41 @@ module Yulio
 			end
 			
 			
-			
-			
 			def set_microsoft_mode(mesh_per_material)
 				@mesh_per_material = mesh_per_material
 			end
 			
 			
+			# # return the array of all mesh IDs generated during the model export
+			# def get_mesh_ids()
+			# 	mesh_ids = []
+			# 	@indicies_per_material_per_mesh.each_key { |mesh_id|
+			# 		mesh_ids.push(mesh_id)
+			# 	}
+			# 	return mesh_ids
+			# end
 			
 			
-			# return the array of all mesh IDs generated during the model export
-			def get_mesh_ids()
-				mesh_ids = []
-				@indicies_per_material_per_mesh.each_key { |mesh_id|
-					mesh_ids.push(mesh_id)
-				}
-				return mesh_ids
-			end
+			# # returns the array of materials within the given mesh
+			# def get_mesh_materials(mesh_id)
+			# 	materials = []
+			# 	@indicies_per_material_per_mesh[mesh_id].each_key { |material_id|
+			# 		materials.push(material_id)
+			# 	}
+			# 	return materials
+			# end
 			
 			
+			# # returns the array of indexes per mesh-material
+			# def get_mesh_indices(mesh_id, material_id)
+			# 	return @indicies_per_material_per_mesh[mesh_id][material_id]
+			# end
 			
 			
-			# returns the array of materials within the given mesh
-			def get_mesh_materials(mesh_id)
-				materials = []
-				@indicies_per_material_per_mesh[mesh_id].each_key { |material_id|
-					materials.push(material_id)
-				}
-				return materials
-			end
-			
-			
-			# returns the array of indexes per mesh-material
-			def get_mesh_indices(mesh_id, material_id)
-				return @indicies_per_material_per_mesh[mesh_id][material_id]
-			end
-			
-			
-			# Get the stored flag for if the mesh is textured
-			def is_mesh_textured(mesh_id, material_id)
-				return @mesh_textured[mesh_id][material_id]
-			end
+			# # Get the stored flag for if the mesh is textured
+			# def is_mesh_textured(mesh_id, material_id)
+			# 	return @mesh_textured[mesh_id][material_id]
+			# end
 			
 			
 			# check if a material has a texture, returns true if it has
@@ -182,76 +173,85 @@ module Yulio
 				return determ
 			end
 			
-			
-			
-			
 			# Recursively scan through the sketchup model, get every face for export, group by material
-			def collate_geometry(nodeId, transformation, entities, group, groupWithMaterial)
-				face_by_material = {}
-				groupWithMat = groupWithMaterial
+			def collate_geometry(nodeId, transformation, entities, group, group_with_material)
 				
+				face_by_material = {}
+				group_with_mat = group_with_material
+
 				entities.each { |e|
-					next if e.deleted? == true
-					next if e.valid? == false
-					next if e.hidden? == true # skip this entity if it is hidden
+				#for e in entities #Lev: 'for' is marginally slower than 'each'
+					#next if e.deleted? == true
+					#next if e.valid? == false
+					#next if e.hidden? == true # skip this entity if it is hidden
 					
+					#Lev: commented out for performance reasons ->
+					if (e.hidden? == true || e.deleted? == true || e.valid? == false)
+						next
+					end
+
 					# Do not export faces/groups/components on hidden layers
-					if e.layer != nil
-						if e.layer.visible? == false
-							next
-						end
+					if (e.layer != nil && e.layer.visible? == false)
+						next
 					end
+					#<-
 					
-					if(e.class == Sketchup::Group)
-						if e.hidden? == false
-							group_node_id = @nodes.add_node(e.name, e.transformation, @use_matrix)
-							@nodes.add_child(nodeId, group_node_id)
-							trn = transformation * e.transformation
-							if @use_matrix
-								trn = e.transformation
-							end
-							if e.material != nil
-								collate_geometry(group_node_id,trn, e.entities, e, e)
-							else
-								collate_geometry(group_node_id,trn, e.entities, e, groupWithMaterial)
-							end
-							
+					materialNotNil = e.material != nil #Lev: to optimize the object checks against nil (seems like they are expensive in Ruby)
+
+					if (e.class == Sketchup::Group)
+						#puts "e.class == Sketchup::Group"
+						group_node_id = @nodes.add_node(e.name, e.transformation, @use_matrix)
+						@nodes.add_child(nodeId, group_node_id)
+						trn = transformation * e.transformation
+						if @use_matrix
+							trn = e.transformation
 						end
-					end
-					if(e.class == Sketchup::ComponentInstance)
-						if e.hidden? == false
-							group_node_id = @nodes.add_node(e.definition.name, e.transformation, @use_matrix)
-							@nodes.add_child(nodeId, group_node_id)
-							trn = transformation * e.transformation
-							if @use_matrix
-								trn = e.transformation
-							end
-							if e.material != nil
-								groupWithMat = e
-							end
-							if e.material != nil
-								collate_geometry(group_node_id,trn, e.definition.entities, e, e)
-							else
-								collate_geometry(group_node_id,trn, e.definition.entities, e, groupWithMaterial)
-							end
+						if materialNotNil
+							collate_geometry(group_node_id, trn, e.entities, e, e)
+						else
+							collate_geometry(group_node_id, trn, e.entities, e, group_with_material)
 						end
-					end
-					
-					if(e.class == Sketchup::Face)
+					elsif (e.class == Sketchup::ComponentInstance)
+						#puts "e.class == Sketchup::ComponentInstance"
+						group_node_id = @nodes.add_node(e.definition.name, e.transformation, @use_matrix)
+						@nodes.add_child(nodeId, group_node_id)
+						trn = transformation * e.transformation
+						if @use_matrix
+							trn = e.transformation
+						end
+						if materialNotNil
+							group_with_mat = e
+							collate_geometry(group_node_id, trn, e.definition.entities, e, e)
+						else
+							collate_geometry(group_node_id, trn, e.definition.entities, e, group_with_material)
+						end
+					elsif (e.class == Sketchup::Face)
 						face = e
-						
-						# special case, a material with alpha of zero is sometimes used for blending groups together... don't export it.
-						if(face.material != nil)
-							if(face.material.alpha == 0.0)
+						faceWithMaterial = face
+						if !materialNotNil
+							if group_with_mat != nil
+								if group_with_mat.material != nil
+									faceWithMaterial = group_with_mat
+								end
+							end
+						else
+							if (face.material.alpha == 0.0)
+								# Special case: a material with alpha of zero is sometimes used for blending groups together... don't export it.
 								next
 							end
-						end
-						
-						faceWithMaterial = face
-						if face.material == nil
-							if groupWithMat != nil
-								if groupWithMat.material != nil
-									faceWithMaterial = groupWithMat
+
+							# Lev: a hack to filter out CET exported geometry representing the insides of objects. Such geometry has a double-sided materials with certain properties:
+							# Front faces will have a material named "Color_#xxxxxx", where xxxxxx is a hexadecimal RGB value.
+							# Back faces will have a material name staring the "Transparent" and the opacity value of 0.0.
+							# Note, that skipping all of the faces of a mesh will likely produce empty parent nodes in the resulting glTF file.
+							# It's not a big deal (this is not classified as an error in the glTF spec), but we should address it at some point (likely in the common glTF exporter back-end implementation).
+							if (face.back_material != nil)
+								# Put the easiest to evaluate conditions on the left for performance reasons
+								if (#face.back_material.alpha == 0.0 &&
+									face.back_material.name.match(/^Transparent/) && 
+									face.material.name.match(/^Color_#([a-fA-F0-9]{6})/))
+									#puts "CET face match found: " + face.material.name 
+									next
 								end
 							end
 						end
@@ -281,15 +281,16 @@ module Yulio
 						faces.push(face)
 					end
 				}
+				#end
 				
-				if face_by_material.length == 0
+				if (face_by_material.length == 0)
 					return
 				end
-				
 				
 				#if @mesh_per_material == false
 				mesh_id = @meshes.add_mesh(nil)
 				@nodes.add_mesh(nodeId, mesh_id)
+				#puts "Added a mesh with ID " + mesh_id.to_s + " and a node with ID " + nodeId.to_s
 				#end
 				
 				face_by_material.each_key { |material_id|
@@ -308,54 +309,47 @@ module Yulio
 							
 							
 					has_texture = false
-					if faces[0].material != nil
-						if faces[0].material.texture != nil
+					if (faces[0].material != nil && faces[0].material.texture != nil)
+						has_texture = true
+					end
+					if (has_texture == false)
+						if (group_with_mat != nil && group_with_mat.material != nil && group_with_mat.material.texture != nil)
 							has_texture = true
 						end
 					end
-					if has_texture == false
-						if groupWithMat != nil
-							if groupWithMat.material != nil
-								if groupWithMat.material.texture != nil
-									has_texture = true
-								end
-							end
-						end
-					end
 						
-					@mesh_geometry.begin_collection()
-					
-
-					
-			
+					kPoints = 0
+					kUVQFront = 1
+					kUVQBack = 2
+					kNormals = 4
+					flags = kPoints | kUVQFront | kNormals
 					faces.each { |face|
-						mesh = face.mesh 1 | 4
+						mesh = face.mesh(flags) 
 						
-						det = 1.0
-						if(@use_matrix == false)
-							mesh.transform! transformation
-							a = transformation.to_a
-							det = determinant(a)
-						end
+					 	det = 1.0
+					 	if (@use_matrix == false)
+					 		mesh.transform! transformation
+					 		a = transformation.to_a
+					 		det = determinant(a)
+					 	end
 						
-						
+					 	#has_texture = material_has_texture(group,face)
 
-						
-						#has_texture = material_has_texture(group,face)
-						
-						for i in (1..mesh.count_polygons)
-							polygon = mesh.polygon_at(i)
-							idx0 = polygon[0].abs
-							idx1 = polygon[1].abs
-							idx2 = polygon[2].abs
+						number_of_polygons = mesh.count_polygons
+						#puts "Mesh has " + number_of_polygons.to_s + " polygons"
+					 	for i in (1..number_of_polygons)
+					 		polygon = mesh.polygon_at(i)
+					 		idx0 = polygon[0].abs
+					 		idx1 = polygon[1].abs
+					 		idx2 = polygon[2].abs
 
-							p0 = mesh.point_at(idx0)
-							p1 = mesh.point_at(idx1)
-							p2 = mesh.point_at(idx2)
+					 		p0 = mesh.point_at(idx0)
+					 		p1 = mesh.point_at(idx1)
+					 		p2 = mesh.point_at(idx2)
 						
-							n0 = mesh.normal_at(idx0)
-							n1 = mesh.normal_at(idx1)
-							n2 = mesh.normal_at(idx2)
+					 		n0 = mesh.normal_at(idx0)
+					 		n1 = mesh.normal_at(idx1)
+					 		n2 = mesh.normal_at(idx2)
 						
 							#if(det < 0.0)
 							#	n0 = Geom::Vector3d.new(-n0.x,-n0.y,-n0.z)
@@ -363,38 +357,39 @@ module Yulio
 							#	n2 = Geom::Vector3d.new(-n2.x,-n2.y,-n2.z)
 							#end
 							
-							uvw0 = mesh.uv_at(idx0,true)
-							uvw1 = mesh.uv_at(idx1,true)
-							uvw2 = mesh.uv_at(idx2,true)
+					 		uvw0 = mesh.uv_at(idx0,true)
+					 		uvw1 = mesh.uv_at(idx1,true)
+					 		uvw2 = mesh.uv_at(idx2,true)
 							
 							if @isWarning == false && (uvw0[2] != 1.0 || uvw1[2] != 1.0 || uvw2[2] != 1.0)
 								@errors.push(TRANSLATE("badUVW"))
 								@isWarning = true
 							end
 							
-							if(det < 0.0)
+							if (det < 0.0)
 								# reverse the winding order
-								idx1 = @mesh_geometry.add_geometry(p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
-								idx0 = @mesh_geometry.add_geometry(p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-								idx2 = @mesh_geometry.add_geometry(p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+								idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
 							else
-								idx0 = @mesh_geometry.add_geometry(p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-								idx1 = @mesh_geometry.add_geometry(p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
-								idx2 = @mesh_geometry.add_geometry(p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+								idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
 							end
 							
-						end
+					 	end
 					}
-					indices = @mesh_geometry.end_collection()
-					if @indicies_per_material_per_mesh[mesh_id] == nil
-						@indicies_per_material_per_mesh[mesh_id] = {}
-					end
-					if @mesh_textured[mesh_id] == nil
-						@mesh_textured[mesh_id] = {}
-					end
-					@mesh_textured[mesh_id][material_id] = has_texture;
 					
-					@indicies_per_material_per_mesh[mesh_id][material_id] = indices
+					#Test code
+					#puts "Indices is " + @mesh_geometry.meshes_data[mesh_id][material_id].indices.to_s
+					
+					# all_geometry = @mesh_geometry.meshes_data
+					# puts "Mesh with ID " + mesh_id.to_s + " and material ID " + material_id.to_s + " has p: " + all_geometry[mesh_id][material_id].positions.length.to_s \
+					# 	+ "; n: " + all_geometry[mesh_id][material_id].normals.length.to_s \
+					# 	#+ "; uvs: " + all_geometry[mesh_id][material_id].uvs.length.to_s \
+					# 	+ "; h: " + all_geometry[mesh_id][material_id].hash.length.to_s \
+					# 	+ "; c: " + all_geometry[mesh_id][material_id].count.to_s \
+					# 	+ "; indices length: " + all_geometry[mesh_id][material_id].indices.length.to_s
 				}
 			end
 		end

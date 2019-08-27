@@ -48,6 +48,17 @@ Sketchup.require 'extensions'
 #       Fixed an issue where the material from an outer group or component being used to paint nested faces was not used in the final model.
 #       Set glTF copyright field from model.description
 # 1.3.1 Drop the use of 8-bit indexes as this is not supported by many GPUs/Engines and may be dropped from future glTF specification.
+# 2.0.0 Added support for the camera export
+# 		Changed the mesh accumulation, export and relevant buffer view generation mechanism to be performed on a per mesh per material basis. This cuts down the export times by a factor of 2x and drastically improves the speed and memory consumption when exported files are imported via Assimp.
+# 		Added optional support for multiple buffer generation in exported files (if needed)
+# 		Currently mesh vertices are exported without welding for performance reasons (additional ~30% speed improvement) at the expense of bigger exported file sizes (this could be changed to hash based welding; see the code in MeshData class)
+# 		Overall re-factoring to clean up and remove redundant code
+# 		Various small performance optimizations and hardening
+# 		Added some missing internationalization resource strings
+# 2.1.0 Added ImageMagick app to convert images to .png
+# 		Passed FOV to gltf from SU
+# 2.2.0 Fixed RGBA blending not being supported when a texture was specified for a material
+# 		A fix to suppress duplicate geometry in CET exported scenes
 
 module Yulio
 	module GltfExporter
@@ -57,7 +68,7 @@ module Yulio
 			
 			ex = SketchupExtension.new(TRANSLATE["title"], 'yulio_gltf_export/gltf_export')
 			ex.description = TRANSLATE["description"]
-			ex.version     = '1.0.0'
+			ex.version     = '2.2.0'
 			ex.copyright   = '©2019'
 			ex.creator     = 'Yulio Technolgies Inc.'
 			Sketchup.register_extension(ex, true)

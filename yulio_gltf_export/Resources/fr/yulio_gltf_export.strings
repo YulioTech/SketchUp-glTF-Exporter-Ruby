@@ -11,9 +11,12 @@
 "materials"="Matériaux";
 "nodes"="Nodes";
 "meshes"="Meshes";
+"cameras"="Cameras";
 "accessors"="Accessors";
 "bufferViews"="Vues Buffer";
+"buffers"="Buffers";
 "path"="Enregistré sur le chemin";
 "triangles"="Triangles";
+"vertices"="Vertices";
 "unsupportedImage"="Est un type d'image non pris en charge selon la spécification glTF";
 "badUVW","Les modèles contenant des textures mappées en perspective (UVQ) ne sont pas pris en charge";

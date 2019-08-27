@@ -26,7 +26,6 @@ Sketchup.require 'yulio_gltf_export/gltf_id'
 
 module Yulio
 	module GltfExporter
-	
 		class GltfNodes
 			
 			def initialize
@@ -35,6 +34,8 @@ module Yulio
 				#@is_microsoft = false
 			end
 			
+			attr_reader :nodes 
+
 			def set_microsoft_mode(is_microsoft)
 				#@is_microsoft = is_microsoft
 			end
@@ -79,6 +80,10 @@ module Yulio
 			def add_mesh(node_id, mesh_id)
 				@nodes[node_id]["mesh"] = mesh_id
 			end
+
+			def add_camera(node_id, camera_id)
+				@nodes[node_id]["camera"]=camera_id
+			end
 			
 			def add_child(node_id, child_node_id)
 				node = @nodes[node_id]
@@ -86,10 +91,6 @@ module Yulio
 					node["children"] = []
 				end
 				node["children"].push(child_node_id)
-			end
-			
-			def get_nodes
-				return @nodes
 			end
 			
 		end
