@@ -71,7 +71,7 @@ module Yulio
                 
                 pages.each do |page|
                     name = page.label
-                    camera = page.camera
+                    camera=align_camera_view(page.camera)
                     matrix = create_camera_matrix(camera)
                     camera_id = add_camera_type(name + "_camera",camera.fov.degrees)
                     node_id = @nodes.add_node(name, matrix, true)
@@ -106,6 +106,13 @@ module Yulio
                 return node_id
             end
 
+            def align_camera_view(camera)
+                angle=camera.direction.angle_between(Z_AXIS)
+                angle=angle*180/Math::PI-90
+                rotation=Geom::Transformation.rotation(camera.eye,camera.xaxis,(angle.degrees))
+                new_target=camera.target.transform(rotation)
+                return camera.set(camera.eye,new_target,Z_AXIS)
+            end
         end
     end
     
