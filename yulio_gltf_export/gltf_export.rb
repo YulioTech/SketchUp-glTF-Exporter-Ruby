@@ -211,7 +211,7 @@ module Yulio
 					asset = {
 						"version" => "2.0",
 						"minVersion" => "2.0", #Min version required to load the file (optional field)
-						"generator" => "Sketchup glTF Exporter v2.1.0 by Yulio Technogies Inc."
+						"generator" => "Sketchup glTF Exporter v2.2.0 by Yulio Technogies Inc."
 					}
 					
 					# set the glTF copyright field, use model.description
@@ -270,7 +270,7 @@ module Yulio
 					#Test code ->
 					ending = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 					elapsed = ending - starting
-					puts "glTF export took " + elapsed.to_s + " seconds"
+					puts "glTF export to " + filename + " took " + elapsed.to_s + " seconds"
 					#return
 					#<-
 

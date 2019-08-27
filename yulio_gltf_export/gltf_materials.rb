@@ -57,7 +57,9 @@ module Yulio
 				r = r ** (2.2)
 				g = g ** (2.2)
 				b = b ** (2.2)
-				#puts 'Adding material'
+				
+				#puts "Adding material: " + name
+				#puts "r:" + r.to_s + " g:" + g.to_s + " b:" + b.to_s + " a:" + a.to_s 
 				#puts name
 				
 				
@@ -71,17 +73,11 @@ module Yulio
 				}
 
 				if texture_id != nil
-					material = 
-					{
-						#"name" => name,
-						"pbrMetallicRoughness" =>
-						{
-							"baseColorTexture" =>
-							{
-								"index" => texture_id
-							}
-						}
-					}
+					# Lev: in SU when a texture is used in a material, its pixel values (including the alpha) are multipled by the base color values (thus providing the mechanism for linear RGBA blending between both).
+					# This matches nicely with the way the glTF 2.0 spec (https://github.com/KhronosGroup/glTF/tree/master/specification/2.0) defines the similar scenario:
+					# "If both factors and textures are present the factor value acts as a linear multiplier for the corresponding texture values."
+					# So the behavior below has to be the one of adding "baseColorTexture" property to the "pbrMetallicRoughness", rather than overwriting the "baseColorFactor" added above.
+					material["pbrMetallicRoughness"]["baseColorTexture"] = { "index" => texture_id } 
 					
 					#if @is_microsoft == true
 						# metallicRoughnessTexture is currently required by Paint3D.
@@ -223,8 +219,15 @@ module Yulio
 				
 				double_sided = false
 				if face.class == Sketchup::Face 	# 'face' might be an entity such as group or component
+
+					#puts "FRONT face material: " + face.material.name
+					#puts "r:" + face.material.color.red.to_s + " g:" + face.material.color.green.to_s + " b:" + face.material.color.blue.to_s + " a:" + face.material.alpha.to_s 
+
 					if face.back_material != nil
 						double_sided = true
+
+						#puts "BACK face material: " + face.back_material.name
+						#puts "r:" + face.back_material.color.red.to_s + " g:" + face.back_material.color.green.to_s + " b:" + face.back_material.color.blue.to_s + " a:" + face.back_material.alpha.to_s 
 					end
 				end
 				

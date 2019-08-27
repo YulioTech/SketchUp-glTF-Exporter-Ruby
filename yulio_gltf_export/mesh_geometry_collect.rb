@@ -235,12 +235,25 @@ module Yulio
 								end
 							end
 						else
-							#Lev: commented out for performance reasons ->
 							if (face.material.alpha == 0.0)
 								# Special case: a material with alpha of zero is sometimes used for blending groups together... don't export it.
 								next
 							end
-							#<-
+
+							# Lev: a hack to filter out CET exported geometry representing the insides of objects. Such geometry has a double-sided materials with certain properties:
+							# Front faces will have a material named "Color_#xxxxxx", where xxxxxx is a hexadecimal RGB value.
+							# Back faces will have a material name staring the "Transparent" and the opacity value of 0.0.
+							# Note, that skipping all of the faces of a mesh will likely produce empty parent nodes in the resulting glTF file.
+							# It's not a big deal (this is not classified as an error in the glTF spec), but we should address it at some point (likely in the common glTF exporter back-end implementation).
+							if (face.back_material != nil)
+								# Put the easiest to evaluate conditions on the left for performance reasons
+								if (#face.back_material.alpha == 0.0 &&
+									face.back_material.name.match(/^Transparent/) && 
+									face.material.name.match(/^Color_#([a-fA-F0-9]{6})/))
+									#puts "CET face match found: " + face.material.name 
+									next
+								end
+							end
 						end
 						
 						material_id = @materials.add_material(faceWithMaterial)
@@ -270,7 +283,7 @@ module Yulio
 				}
 				#end
 				
-				if face_by_material.length == 0
+				if (face_by_material.length == 0)
 					return
 				end
 				
