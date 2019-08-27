@@ -21,6 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #-----------------------------------------------------------------------------------
+$LOAD_PATH << File.expand_path(File.dirname(__FILE__))
 require "mini_magick"
 require 'tmpdir'
 
