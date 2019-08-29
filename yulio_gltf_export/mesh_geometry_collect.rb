@@ -240,20 +240,26 @@ module Yulio
 								next
 							end
 
-							# Lev: a hack to filter out CET exported geometry representing the insides of objects. Such geometry has a double-sided materials with certain properties:
-							# Front faces will have a material named "Color_#xxxxxx", where xxxxxx is a hexadecimal RGB value.
-							# Back faces will have a material name staring the "Transparent" and the opacity value of 0.0.
-							# Note, that skipping all of the faces of a mesh will likely produce empty parent nodes in the resulting glTF file.
-							# It's not a big deal (this is not classified as an error in the glTF spec), but we should address it at some point (likely in the common glTF exporter back-end implementation).
-							if (face.back_material != nil)
-								# Put the easiest to evaluate conditions on the left for performance reasons
-								if (#face.back_material.alpha == 0.0 &&
-									face.back_material.name.match(/^Transparent/) && 
-									face.material.name.match(/^Color_#([a-fA-F0-9]{6})/))
-									#puts "CET face match found: " + face.material.name 
-									next
-								end
-							end
+							# Lev: commenting out the hack below as it results in valid geomerty also being removed from CET exported scenes.
+							# It looks like the CET's SU exporter generates the material face names automatically based on either the assigned texture file name or, if there's no texture assigned, on the diffuse color RGB values
+							# (e.g. 5H11_1_999 (d01c678dcb795fe0fce65c67e754be7bac9505c54932b973).JPG or Color_#7f7f7f). This naming schema is used equally for both the regular 'outer shell' geometry,
+							# as well as the 'inner shell' geometry and thus can't be used to differentiate between the two. We'll have to look into geometry topology and/or occlusion heruistics in the future to address this problem. 
+							# ====>
+							# # Lev: a hack to filter out CET exported geometry representing the insides of objects. Such geometry has a double-sided materials with certain properties:
+							# # Front faces will have a material named "Color_#xxxxxx", where xxxxxx is a hexadecimal RGB value.
+							# # Back faces will have a material name staring the "Transparent" and the opacity value of 0.0.
+							# # Note, that skipping all of the faces of a mesh will likely produce empty parent nodes in the resulting glTF file.
+							# # It's not a big deal (this is not classified as an error in the glTF spec), but we should address it at some point (likely in the common glTF exporter back-end implementation).
+							# if (face.back_material != nil)
+							# 	# Put the easiest to evaluate conditions on the left for performance reasons
+							# 	if (#face.back_material.alpha == 0.0 &&
+							# 		face.back_material.name.match(/^Transparent/) && 
+							# 		face.material.name.match(/^Color_#([a-fA-F0-9]{6})/))
+							# 		#puts "CET face match found: " + face.material.name 
+							# 		next
+							# 	end
+							# end
+							# <====
 						end
 						
 						material_id = @materials.add_material(faceWithMaterial)
