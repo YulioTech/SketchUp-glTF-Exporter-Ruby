@@ -70,7 +70,7 @@ module Yulio
 			
 			ex = SketchupExtension.new(TRANSLATE["title"], 'yulio_gltf_export/gltf_export')
 			ex.description = TRANSLATE["description"]
-			ex.version     = '2.2.1'
+			ex.version     = '2.2.2'
 			ex.copyright   = '©2019'
 			ex.creator     = 'Yulio Technolgies Inc.'
 			Sketchup.register_extension(ex, true)

@@ -53,10 +53,13 @@ module Yulio
 				#	#end
 				#end
 				
-				# convert from sRGB space to Linear space
-				r = r ** (2.2)
-				g = g ** (2.2)
-				b = b ** (2.2)
+				# Lev: this is wrong (it's tonemapping, not sRGB -> linear conversion) and unnecessary (the color in SU is in linear space), and results in overly dark colors in the final renderes.
+				# ====>
+				# # convert from sRGB space to Linear space
+				# r = r ** (2.2)
+				# g = g ** (2.2)
+				# b = b ** (2.2)
+				# <====
 				
 				#puts "Adding material: " + name
 				#puts "r:" + r.to_s + " g:" + g.to_s + " b:" + b.to_s + " a:" + a.to_s 
