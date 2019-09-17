@@ -85,11 +85,22 @@ module Yulio
 				# get the extension of the texture filename
 				#file_name=face.material.texture.filename
 				ext = face.material.texture.filename.split('.').last
-				ext.downcase!
+				if (ext == nil)
+					# puts 'face: ' + face.to_s
+					# puts 'face.material: ' + face.material.to_s
+					# puts 'face.material.texture: ' + face.material.texture.to_s
+					# puts 'Extention is not found for texture: "' + face.material.texture.filename + '"'
+					# Lev: looks like it's possible to have a valid texture object with an epmty filename string (need to investigate this further).
+					# So we'll just assume it's a jpeg image, since most image loaders rely on tyhe actual header anyway (as opposed to the file extension).
+					ext = "jpg"
+				else
+					ext.downcase!
+				end
 
 				# create a random file in the tmp directory
 				n = Random.rand(100000) + 100000
 				file =  File.join(Dir.tmpdir() , n.to_s + "."+ ext)
+				#puts 'file: ' + file
 				
 				
 				# load the texture, and write it to the file (why does this need to be separate operations?)

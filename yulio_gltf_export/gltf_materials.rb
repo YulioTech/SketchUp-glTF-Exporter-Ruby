@@ -240,6 +240,8 @@ module Yulio
 				@materials_hash[material] = @materials.length
 				
 				name = face.material.display_name
+				#puts 'Material display name: ' + name
+
 				a = material.alpha
 				r = material.color.red / 255.0
 				g = material.color.green / 255.0
