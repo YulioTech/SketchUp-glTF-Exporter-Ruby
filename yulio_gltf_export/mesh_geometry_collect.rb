@@ -270,7 +270,7 @@ module Yulio
 							#puts "FRONT face material: " + face.material.name
 							#puts "r:" + face.material.color.red.to_s + " g:" + face.material.color.green.to_s + " b:" + face.material.color.blue.to_s + " a:" + face.material.alpha.to_s 
 		
-							if face.back_material != nil
+							if (face.material != nil && face.back_material != nil)
 								#puts "BACK face material: " + face.back_material.name
 								#puts "r:" + face.back_material.color.red.to_s + " g:" + face.back_material.color.green.to_s + " b:" + face.back_material.color.blue.to_s + " a:" + face.back_material.alpha.to_s 
 
