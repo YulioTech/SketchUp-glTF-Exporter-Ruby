@@ -67,9 +67,9 @@ module Yulio
 			end
 			
 			
-			# Extract the texture from the face
-			def add_image(face)
-				type,bytes = get_image_bytes(face)
+			# Extract the texture from the face for the provided associated material (for either the front or the back of the face)
+			def add_image(face, material, is_front_face)
+				type,bytes = get_image_bytes(face, material, is_front_face)
 				return add_image_node(type,bytes)
 			end
 
@@ -78,18 +78,16 @@ module Yulio
 			# warning, if the w in uvw is not 1, this will get a distorted imitation of the original texture.
 			# in that case, a todo here is to create a new face, apply the texture, then export.
 			# The problem with that is that it changes the model, so an undo is required.
-			def get_image_bytes(face)
+
+			# Lev : we pass the material separetly here, since we might be processing either the front of the back side material (hence, the boolean 'is_front_face' parameter as well)
+			def get_image_bytes(face, material, is_front_face)
 				
 				texturewriter = Sketchup.create_texture_writer
 				
 				# get the extension of the texture filename
 				#file_name=face.material.texture.filename
-				ext = face.material.texture.filename.split('.').last
+				ext = material.texture.filename.split('.').last
 				if (ext == nil)
-					# puts 'face: ' + face.to_s
-					# puts 'face.material: ' + face.material.to_s
-					# puts 'face.material.texture: ' + face.material.texture.to_s
-					# puts 'Extention is not found for texture: "' + face.material.texture.filename + '"'
 					# Lev: looks like it's possible to have a valid texture object with an epmty filename string (need to investigate this further).
 					# So we'll just assume it's a jpeg image, since most image loaders rely on tyhe actual header anyway (as opposed to the file extension).
 					ext = "jpg"
@@ -100,27 +98,28 @@ module Yulio
 				# create a random file in the tmp directory
 				n = Random.rand(100000) + 100000
 				file =  File.join(Dir.tmpdir() , n.to_s + "."+ ext)
-				#puts 'file: ' + file
+				#puts 'Temporary image file: ' + file
 				
 				
 				# load the texture, and write it to the file (why does this need to be separate operations?)
 				# todo: put out a feature request so unmangled textures can be read straight into memory
-				if face.class == Sketchup::Face
-					texturewriter.load face, true
-					txtWrt=texturewriter.write face, true, file
+				if (face.class == Sketchup::Face)
+					texturewriter.load face, is_front_face
+					txtWrt = texturewriter.write face, is_front_face, file
 				else
 					texturewriter.load face
 					txtWrt=texturewriter.write face, file
 				end
 
-				if txtWrt!=0 # If failed use default texture instead
+				if (txtWrt != 0) # If failed use default texture instead
 					ext="jpg"
 					defaultTexture=__dir__+"/Grey_Texture.jpg"
 					file=file.split(".").first+"."+ext
 					FileUtils.copy(defaultTexture,file)			
+					#puts 'Using default texture: ' + file		
 				end
 
-				if ext != 'jpg' && ext!= 'png'
+				if (ext != 'jpg' && ext!= 'png')
 					type="png"
 					temp_file=MiniMagick::Image.open(file)
 					File.delete(file)

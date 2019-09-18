@@ -34,14 +34,14 @@ module Yulio
 
             attr_reader :cameras 
 
-            def add_camera_type(name,fov)
+            def add_camera_type(name, fov, aspect_ratio)
                 camera={
                         "perspective"=>
                         {
                             "yfov"=>fov,
                             "zfar"=>25.399999618530278,
                             "znear"=>0.02539999969303608,
-                            "aspectRatio"=>1.5
+                                "aspectRatio"=>aspect_ratio
                         },
                         "type"=>"perspective",
                     "name"=>name
@@ -73,7 +73,7 @@ module Yulio
                     name = page.label
                     camera=align_camera_view(page.camera)
                     matrix = create_camera_matrix(camera)
-                    camera_id = add_camera_type(name + "_camera",camera.fov.degrees)
+                    camera_id = add_camera_type(name + "_camera", camera.fov.degrees, (camera.aspect_ratio > 0.0 ? camera.aspect_ratio : 16.0/9.0))
                     node_id = @nodes.add_node(name, matrix, true)
                     @nodes.add_camera(node_id, camera_id)
                     @nodes.add_child(group_node_id, node_id)

@@ -240,6 +240,16 @@ module Yulio
 					if (@cameras.cameras.length > 0)
 						export["cameras"] = @cameras.cameras
 					end
+
+					# Lev: remove the hacked dictionary entries (since they represent invalid glTF properties and will throw a warning during the glTF validation), so that they don't get written to the resultant glTF file. 
+					@materials.materials.each { |material|
+						if (material.key?("backFace"))
+							material.delete("backFace")
+						end
+						if (material.key?("hasTexture"))
+							material.delete("hasTexture")
+						end
+					}
 					export["materials"] = @materials.materials
 					
 					if (@images.images.length > 0)

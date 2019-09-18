@@ -60,7 +60,7 @@ Sketchup.require 'extensions'
 # 2.2.0 Fixed RGBA blending not being supported when a texture was specified for a material
 # 		A fix to suppress duplicate geometry in CET exported scenes
 # 2.2.1 Disabled the fix to suppress duplicate geometry in CET exported scenes, since it resulted in removal of valid geometry
-
+# 2.3.0 Added proper handling of double sided materials (with a distinct material on each side) by generating 2 separate sets of front and back faces with the correct associated materials.
 
 module Yulio
 	module GltfExporter
@@ -70,7 +70,7 @@ module Yulio
 			
 			ex = SketchupExtension.new(TRANSLATE["title"], 'yulio_gltf_export/gltf_export')
 			ex.description = TRANSLATE["description"]
-			ex.version     = '2.2.2'
+			ex.version     = '2.3.0'
 			ex.copyright   = '©2019'
 			ex.creator     = 'Yulio Technolgies Inc.'
 			Sketchup.register_extension(ex, true)

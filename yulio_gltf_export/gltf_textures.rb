@@ -36,17 +36,18 @@ module Yulio
 
 			attr_reader :textures 
 			
-			def add_texture(face)
-				if (face.material == nil || face.material.texture == nil) 
+			# Lev : we pass the material separetly here, since we might be processing either the front of the back side material (hence, the boolean 'is_front_face' parameter as well)
+			def add_texture(face, material, is_front_face)
+				if (material == nil || material.texture == nil) 
 					return nil
 				end
 
-				index = @textures_hash[face.material.texture]
+				index = @textures_hash[material.texture]
 				if (index != nil)
 					return index
 				end
 				
-				image_source_id = @images.add_image(face)
+				image_source_id = @images.add_image(face, material, is_front_face)
 				index = @textures.length
 				texture =
 				{

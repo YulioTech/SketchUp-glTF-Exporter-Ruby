@@ -235,7 +235,8 @@ module Yulio
 								end
 							end
 						else
-							if (face.material.alpha == 0.0)
+							#if (face.material.alpha == 0.0)
+							if (faceWithMaterial.material.alpha == 0.0)
 								# Special case: a material with alpha of zero is sometimes used for blending groups together... don't export it.
 								next
 							end
@@ -262,7 +263,53 @@ module Yulio
 							# <====
 						end
 						
-						material_id = @materials.add_material(faceWithMaterial)
+						# Lev: check to see if we need to mark the face as double-sided (so we don;'t have to duplicate it if there;s a back_material present).
+						# This will only be the case we're checking the actual face (i.e. 'face' and NOT 'faceWithMaterial') and if both the front and the back materials are the same.
+						is_double_sided = false
+						begin
+							#puts "FRONT face material: " + face.material.name
+							#puts "r:" + face.material.color.red.to_s + " g:" + face.material.color.green.to_s + " b:" + face.material.color.blue.to_s + " a:" + face.material.alpha.to_s 
+		
+							if face.back_material != nil
+								#puts "BACK face material: " + face.back_material.name
+								#puts "r:" + face.back_material.color.red.to_s + " g:" + face.back_material.color.green.to_s + " b:" + face.back_material.color.blue.to_s + " a:" + face.back_material.alpha.to_s 
+
+								# Lev: technically, the name's can be the same, but the materials can differ. So, to do it prooperly, we need to compare other attriburtes as well.
+								# In practice though, the name comparisson alone will suffice 99.9% of the time.
+								if (face.material.name == face.back_material.name)
+									#puts 'Detected a double-sided material: ' + face.material.name
+									is_double_sided = true;
+								end
+							end
+						end
+		
+						# Lev: handle the face's (or group's) front material
+						material = faceWithMaterial.material
+						is_front_face = true
+						material_id = @materials.add_material(faceWithMaterial, material, is_front_face, is_double_sided)
+
+						faces = face_by_material[material_id]
+						if faces == nil
+							faces = []
+							face_by_material[material_id] = faces
+						end
+						faces.push(face)
+
+						# Lev: handle the face's back material
+						if (!is_double_sided && face.back_material != nil)
+							#puts 'Adding the face\'s back material'
+							material = face.back_material
+							is_front_face = false
+							material_id_back = @materials.add_material(face, material, is_front_face, is_double_sided)
+
+							faces = face_by_material[material_id_back]
+							if faces == nil
+								faces = []
+								face_by_material[material_id_back] = faces
+							end
+							faces.push(face)
+						end
+
 						
 						#if face.material != nil
 						#	material_id = @materials.add_material(face)
@@ -279,12 +326,7 @@ module Yulio
 						#end
 					
 					
-						faces = face_by_material[material_id]
-						if faces == nil
-							faces = []
-							face_by_material[material_id] = faces
-						end
-						faces.push(face)
+
 					end
 				}
 				#end
@@ -312,23 +354,43 @@ module Yulio
 					#end
 				
 					faces = face_by_material[material_id]
+					material = @materials.materials[material_id]
 							
+					# Lev: check if the material corresponds to the face's back
+					is_back_face = false
+					if (material.key?("backFace"))
+						#puts 'Detected a back face material: ' + material["name"]
+						is_back_face = material["backFace"]
+					end
 							
 					has_texture = false
-					if (faces[0].material != nil && faces[0].material.texture != nil)
-						has_texture = true
+					if (material.key?("hasTexture"))
+						#puts 'Detected a material with texture'
+						has_texture = material["hasTexture"]
 					end
-					if (has_texture == false)
-						if (group_with_mat != nil && group_with_mat.material != nil && group_with_mat.material.texture != nil)
-							has_texture = true
-						end
-					end
+						
+					# if (!is_back_face)
+					# 	if (faces[0].material != nil && faces[0].material.texture != nil)
+					# 		has_texture = true
+					# 	end
+					# else
+					# 	if (faces[0].back_material != nil && faces[0].back_material.texture != nil)
+					# 		has_texture = true
+					# 	end
+					# end
+
+					# if (has_texture == false)
+					# 	if (group_with_mat != nil && group_with_mat.material != nil && group_with_mat.material.texture != nil)
+					# 		has_texture = true
+					# 	end
+					# end
 						
 					kPoints = 0
 					kUVQFront = 1
 					kUVQBack = 2
 					kNormals = 4
-					flags = kPoints | kUVQFront | kNormals
+					flags = kPoints | kUVQFront | kUVQBack | kNormals
+
 					faces.each { |face|
 						mesh = face.mesh(flags) 
 						
@@ -345,9 +407,17 @@ module Yulio
 						#puts "Mesh has " + number_of_polygons.to_s + " polygons"
 					 	for i in (1..number_of_polygons)
 					 		polygon = mesh.polygon_at(i)
+							 
+							if (!is_back_face)
 					 		idx0 = polygon[0].abs
 					 		idx1 = polygon[1].abs
 					 		idx2 = polygon[2].abs
+							else
+								# Lev: reverse the winding of the triangles for back faces.
+								idx0 = polygon[0].abs
+								idx1 = polygon[2].abs
+							 	idx2 = polygon[1].abs
+							end
 
 					 		p0 = mesh.point_at(idx0)
 					 		p1 = mesh.point_at(idx1)
@@ -363,9 +433,9 @@ module Yulio
 							#	n2 = Geom::Vector3d.new(-n2.x,-n2.y,-n2.z)
 							#end
 							
-					 		uvw0 = mesh.uv_at(idx0,true)
-					 		uvw1 = mesh.uv_at(idx1,true)
-					 		uvw2 = mesh.uv_at(idx2,true)
+					 		uvw0 = mesh.uv_at(idx0, !is_back_face)
+					 		uvw1 = mesh.uv_at(idx1, !is_back_face)
+					 		uvw2 = mesh.uv_at(idx2, !is_back_face)
 							
 							if @isWarning == false && (uvw0[2] != 1.0 || uvw1[2] != 1.0 || uvw2[2] != 1.0)
 								@errors.push(TRANSLATE("badUVW"))
