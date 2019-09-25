@@ -135,23 +135,24 @@ module Yulio
 				end
 			end
 			
-			def count_faces(entity, faces)
-				faces += 1 if entity.is_a?(Sketchup::Face)
-				if entity.is_a?(Sketchup::ComponentInstance) || entity.is_a?(Sketchup::Group)
-					entity.definition.entities.each do |ent|
-						faces = count_faces(ent, faces)
-					end
-				end
-				return faces
-			end
+			# def count_faces(entity, faces)
+			# 	faces += 1 if entity.is_a?(Sketchup::Face)
+			# 	if entity.is_a?(Sketchup::ComponentInstance) || entity.is_a?(Sketchup::Group)
+			# 		entity.definition.entities.each do |ent|
+			# 			faces = count_faces(ent, faces)
+			# 		end
+			# 	end
+			# 	return faces
+			# end
 			  
 			def get_scene_face_count(model)
-				#model = Sketchup.active_model
-				face_count = 0
+				# Lev: a custom recursive version
+				#face_count = 0
+				#model.entities.each { |ent| face_count = count_faces(ent, face_count) }
+				#return face_count
 
-				model.entities.each { |ent| face_count = count_faces(ent, face_count) }
-
-				return face_count
+				# Lev: a built-in SU version
+				return model.number_faces
 			end
 
 			def export(is_binary, is_microsoft, filename)
@@ -218,8 +219,7 @@ module Yulio
 					matrix = get_default_matrix()
 				
 					# Lev: get the scene's total face count (might be used later to limit exporting to moderately sized scenes only)
-					#face_count = get_scene_face_count(model)
-					#puts 'Scene face count: ' + face_count.to_s
+					#puts 'Scene face count: ' + get_scene_face_count(model).to_s
 
 					#puts 'Collating geometry and materials'
 					root_node_id = @nodes.add_node('root', matrix, @use_matrix)
@@ -348,7 +348,6 @@ module Yulio
 
 				end
 			end
-
 			
 			def write_gltf(filename, export)
 				export["buffers"] = @buffers.encode_buffers()
@@ -358,10 +357,6 @@ module Yulio
 				file.close()
 			end
 			
-			#total length:3345884
-			#buffer length:3216464
-			#json length:129392
-
 			def write_glb(filename, export)
 				buffers, bins = @buffers.get_buffers()
 				export["buffers"] = buffers
