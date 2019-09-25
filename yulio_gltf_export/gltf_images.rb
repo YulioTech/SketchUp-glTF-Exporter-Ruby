@@ -100,7 +100,6 @@ module Yulio
 				file =  File.join(Dir.tmpdir() , n.to_s + "."+ ext)
 				#puts 'Temporary image file: ' + file
 				
-				
 				# load the texture, and write it to the file (why does this need to be separate operations?)
 				# todo: put out a feature request so unmangled textures can be read straight into memory
 				if (face.class == Sketchup::Face)

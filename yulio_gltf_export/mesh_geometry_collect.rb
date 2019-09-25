@@ -176,7 +176,8 @@ module Yulio
 			# Recursively scan through the sketchup model, get every face for export, group by material
 			def collate_geometry(nodeId, transformation, entities, group, group_with_material)
 				
-				face_by_material = {}
+				front_face_by_material = {}
+				back_face_by_material = {}
 				group_with_mat = group_with_material
 
 				entities.each { |e|
@@ -225,6 +226,12 @@ module Yulio
 						else
 							collate_geometry(group_node_id, trn, e.definition.entities, e, group_with_material)
 						end
+					elsif (e.class == Sketchup::Image)
+						# Lev: this is yet another weird thing about SU: you can have entities of the type Image, which have to be first exploded to create regular faces,
+						# that then can be processed with the rest of the faces in the scene.
+						# The only thing here is, we still need to confirm if the explosion operation adds the newly generated face entities to the end/bottom of the tree.
+						# If this is the case, we're all done here. If not, we'll have to traverse the new entities by hand.
+						entities = e.explode
 					elsif (e.class == Sketchup::Face)
 						face = e
 						faceWithMaterial = face
@@ -288,10 +295,10 @@ module Yulio
 						is_front_face = true
 						material_id = @materials.add_material(faceWithMaterial, material, is_front_face, is_double_sided)
 
-						faces = face_by_material[material_id]
+						faces = front_face_by_material[material_id]
 						if faces == nil
 							faces = []
-							face_by_material[material_id] = faces
+							front_face_by_material[material_id] = faces
 						end
 						faces.push(face)
 
@@ -302,36 +309,19 @@ module Yulio
 							is_front_face = false
 							material_id_back = @materials.add_material(face, material, is_front_face, is_double_sided)
 
-							faces = face_by_material[material_id_back]
+							faces = back_face_by_material[material_id_back]
 							if faces == nil
 								faces = []
-								face_by_material[material_id_back] = faces
+								back_face_by_material[material_id_back] = faces
 							end
 							faces.push(face)
 						end
-
-						
-						#if face.material != nil
-						#	material_id = @materials.add_material(face)
-						#else
-						#	# material is nil, check if the group or component has a material
-						#	if group.class == Sketchup::ComponentInstance
-						#		puts 'Face is inside a component instance'
-						#		material_id = @materials.add_material(group.definition)
-						#	else
-						#		# use the group material if it has one
-						#		puts 'Face is inside a group'
-						#		material_id = @materials.add_material(group)
-						#	end
-						#end
-					
-					
 
 					end
 				}
 				#end
 				
-				if (face_by_material.length == 0)
+				if (front_face_by_material.length == 0 && back_face_by_material.length == 0)
 					return
 				end
 				
@@ -341,7 +331,14 @@ module Yulio
 				#puts "Added a mesh with ID " + mesh_id.to_s + " and a node with ID " + nodeId.to_s
 				#end
 				
-				face_by_material.each_key { |material_id|
+				kPoints = 0
+				kUVQFront = 1
+				kUVQBack = 2
+				kNormals = 4
+
+				# Lev: process the FRONT faces
+				flags = kPoints | kUVQFront | kNormals
+				front_face_by_material.each_key { |material_id|
 				
 					# mesh per material is required for the current buggy version of Microsoft Paint 3D
 					# todo: remove this once Microsoft gets out a fix.
@@ -353,20 +350,15 @@ module Yulio
 					#	@nodes.add_mesh(sub_node_id, mesh_id)
 					#end
 				
-					faces = face_by_material[material_id]
+					faces = front_face_by_material[material_id]
 					material = @materials.materials[material_id]
 							
-					# Lev: check if the material corresponds to the face's back
-					is_back_face = false
-					if (material.key?("backFace"))
-						#puts 'Detected a back face material: ' + material["name"]
-						is_back_face = material["backFace"]
-					end
-							
 					has_texture = false
-					if (material.key?("hasTexture"))
-						#puts 'Detected a material with texture'
-						has_texture = material["hasTexture"]
+						
+					if (faces[0].material != nil && faces[0].material.texture != nil)
+						has_texture = true
+					elsif (group_with_mat != nil && group_with_mat.material != nil && group_with_mat.material.texture != nil)
+					 	has_texture = true
 					end
 						
 					# if (!is_back_face)
@@ -379,27 +371,16 @@ module Yulio
 					# 	end
 					# end
 
-					# if (has_texture == false)
-					# 	if (group_with_mat != nil && group_with_mat.material != nil && group_with_mat.material.texture != nil)
-					# 		has_texture = true
-					# 	end
-					# end
-						
-					kPoints = 0
-					kUVQFront = 1
-					kUVQBack = 2
-					kNormals = 4
-					flags = kPoints | kUVQFront | kUVQBack | kNormals
-
 					faces.each { |face|
 						mesh = face.mesh(flags) 
-						
-					 	det = 1.0
-					 	if (@use_matrix == false)
 					 		mesh.transform! transformation
-					 		a = transformation.to_a
-					 		det = determinant(a)
-					 	end
+						
+					 	# det = 1.0
+					 	# if (@use_matrix == false)
+					 	# 	mesh.transform! transformation
+					 	# 	a = transformation.to_a
+					 	# 	det = determinant(a)
+					 	# end
 						
 					 	#has_texture = material_has_texture(group,face)
 
@@ -408,16 +389,9 @@ module Yulio
 					 	for i in (1..number_of_polygons)
 					 		polygon = mesh.polygon_at(i)
 							 
-							if (!is_back_face)
 					 		idx0 = polygon[0].abs
 					 		idx1 = polygon[1].abs
 					 		idx2 = polygon[2].abs
-							else
-								# Lev: reverse the winding of the triangles for back faces.
-								idx0 = polygon[0].abs
-								idx1 = polygon[2].abs
-							 	idx2 = polygon[1].abs
-							end
 
 					 		p0 = mesh.point_at(idx0)
 					 		p1 = mesh.point_at(idx1)
@@ -433,25 +407,26 @@ module Yulio
 							#	n2 = Geom::Vector3d.new(-n2.x,-n2.y,-n2.z)
 							#end
 							
-					 		uvw0 = mesh.uv_at(idx0, !is_back_face)
-					 		uvw1 = mesh.uv_at(idx1, !is_back_face)
-					 		uvw2 = mesh.uv_at(idx2, !is_back_face)
+							# Lev: get UVs for FRONT faces
+					 		uvw0 = mesh.uv_at(idx0, true)
+					 		uvw1 = mesh.uv_at(idx1, true)
+					 		uvw2 = mesh.uv_at(idx2, true)
 							
-							if @isWarning == false && (uvw0[2] != 1.0 || uvw1[2] != 1.0 || uvw2[2] != 1.0)
-								@errors.push(TRANSLATE("badUVW"))
-								@isWarning = true
-							end
+							# if @isWarning == false && (uvw0[2] != 1.0 || uvw1[2] != 1.0 || uvw2[2] != 1.0)
+							# 	@errors.push(TRANSLATE("badUVW"))
+							# 	@isWarning = true
+							# end
 							
-							if (det < 0.0)
-								# reverse the winding order
-								idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+							# if (det < 0.0)
+							# 	# reverse the winding order
+							# 	idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+							# 	idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+							# 	idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+							# else
 								idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-								idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
-							else
-								idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
 								idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
 								idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
-							end
+							#end
 							
 					 	end
 					}
@@ -466,6 +441,79 @@ module Yulio
 					# 	+ "; h: " + all_geometry[mesh_id][material_id].hash.length.to_s \
 					# 	+ "; c: " + all_geometry[mesh_id][material_id].count.to_s \
 					# 	+ "; indices length: " + all_geometry[mesh_id][material_id].indices.length.to_s
+				}
+
+								
+				# Lev: process the BACK faces
+				flags = kPoints | kUVQBack | kNormals
+				back_face_by_material.each_key { |material_id|
+				
+			
+					faces = back_face_by_material[material_id]
+					material = @materials.materials[material_id]
+							
+					has_texture = false
+						
+					if (faces[0].back_material != nil && faces[0].back_material.texture != nil)
+						has_texture = true
+					elsif (group_with_mat != nil && group_with_mat.material != nil && group_with_mat.material.texture != nil)
+					 	has_texture = true
+					end
+
+					faces.each { |face|
+						mesh = face.mesh(flags) 
+						mesh.transform! transformation
+
+					 	# det = 1.0
+					 	# if (@use_matrix == false)
+					 	# 	mesh.transform! transformation
+					 	# 	a = transformation.to_a
+					 	# 	det = determinant(a)
+					 	# end
+						
+					 	#has_texture = material_has_texture(group,face)
+
+						number_of_polygons = mesh.count_polygons
+						#puts "Mesh has " + number_of_polygons.to_s + " polygons"
+					 	for i in (1..number_of_polygons)
+					 		polygon = mesh.polygon_at(i)
+							 
+							# Lev: reverse the winding of the triangles for back faces.
+							idx0 = polygon[0].abs
+							idx1 = polygon[2].abs
+						 	idx2 = polygon[1].abs
+
+					 		p0 = mesh.point_at(idx0)
+					 		p1 = mesh.point_at(idx1)
+					 		p2 = mesh.point_at(idx2)
+						
+					 		n0 = mesh.normal_at(idx0)
+					 		n1 = mesh.normal_at(idx1)
+					 		n2 = mesh.normal_at(idx2)
+						
+							# Lev: get UVs for BACK faces
+					 		uvw0 = mesh.uv_at(idx0, false)
+					 		uvw1 = mesh.uv_at(idx1, false)
+					 		uvw2 = mesh.uv_at(idx2, false)
+							
+							# if @isWarning == false && (uvw0[2] != 1.0 || uvw1[2] != 1.0 || uvw2[2] != 1.0)
+							# 	@errors.push(TRANSLATE("badUVW"))
+							# 	@isWarning = true
+							# end
+							
+							# if (det < 0.0)
+							# 	# reverse the winding order
+							# 	idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+							# 	idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+							# 	idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+							# else
+								idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+							#end
+							
+					 	end
+					}
 				}
 			end
 		end

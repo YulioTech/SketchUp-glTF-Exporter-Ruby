@@ -82,9 +82,6 @@ module Yulio
 					# So the behavior below has to be the one of adding "baseColorTexture" property to the "pbrMetallicRoughness", rather than re-initlaizing the object and overwriting the "baseColorFactor" added above.
 					material["pbrMetallicRoughness"]["baseColorTexture"] = { "index" => texture_id } 
 					
-					# Lev: a hack to mark materials with textures. This attribute should be removed before the actual glTF JSON is generated.
-					material["hasTexture"] = true
-
 					#if @is_microsoft == true
 						# metallicRoughnessTexture is currently required by Paint3D.
 						# As we dont have a texture to use, repeat the same texture.
@@ -162,11 +159,6 @@ module Yulio
 				
 				if (is_double_sided)
 					material["doubleSided"] = true
-				end
-
-				# Lev: a hack to mark back faces. This attribute should be removed before the actual glTF JSON is generated.
-				if (!is_front_face)
-					material["backFace"] = true
 				end
 
 				if(a < 1.0)

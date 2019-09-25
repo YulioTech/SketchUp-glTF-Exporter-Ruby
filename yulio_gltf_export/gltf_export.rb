@@ -135,6 +135,25 @@ module Yulio
 				end
 			end
 			
+			def count_faces(entity, faces)
+				faces += 1 if entity.is_a?(Sketchup::Face)
+				if entity.is_a?(Sketchup::ComponentInstance) || entity.is_a?(Sketchup::Group)
+					entity.definition.entities.each do |ent|
+						faces = count_faces(ent, faces)
+					end
+				end
+				return faces
+			end
+			  
+			def get_scene_face_count(model)
+				#model = Sketchup.active_model
+				face_count = 0
+
+				model.entities.each { |ent| face_count = count_faces(ent, face_count) }
+
+				return face_count
+			end
+
 			def export(is_binary, is_microsoft, filename)
 				@is_microsoft = is_microsoft
 				@nodes.set_microsoft_mode(is_microsoft)
@@ -198,6 +217,10 @@ module Yulio
 
 					matrix = get_default_matrix()
 				
+					# Lev: get the scene's total face count (might be used later to limit exporting to moderately sized scenes only)
+					#face_count = get_scene_face_count(model)
+					#puts 'Scene face count: ' + face_count.to_s
+
 					#puts 'Collating geometry and materials'
 					root_node_id = @nodes.add_node('root', matrix, @use_matrix)
 					@mesh_geometry_collect.collate_geometry(root_node_id, matrix, model.active_entities, nil, nil)
@@ -240,16 +263,6 @@ module Yulio
 					if (@cameras.cameras.length > 0)
 						export["cameras"] = @cameras.cameras
 					end
-
-					# Lev: remove the hacked dictionary entries (since they represent invalid glTF properties and will throw a warning during the glTF validation), so that they don't get written to the resultant glTF file. 
-					@materials.materials.each { |material|
-						if (material.key?("backFace"))
-							material.delete("backFace")
-						end
-						if (material.key?("hasTexture"))
-							material.delete("hasTexture")
-						end
-					}
 					export["materials"] = @materials.materials
 					
 					if (@images.images.length > 0)
@@ -280,7 +293,7 @@ module Yulio
 					#Test code ->
 					ending = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 					elapsed = ending - starting
-					puts "glTF export to " + filename + " took " + elapsed.to_s + " seconds"
+					puts "glTF export to \'" + filename + "\' took " + elapsed.to_s + " seconds"
 					#return
 					#<-
 
@@ -509,7 +522,7 @@ module Yulio
 
 						if (mesh_data.has_texture)
 							uvs_buffer_view_index = pack_buffer(mesh_data.uvs, GL_FLOAT, 8, @current_buffer_index)
-							mint,maxt = write_min_max_vec2(mesh_data.uvs)
+							#mint,maxt = write_min_max_vec2(mesh_data.uvs)
 							uvs_accessor = @accessors.add_accessor(uvs_buffer_view_index,0,GL_FLOAT,mesh_data.uvs.length / 2,"VEC2",nil,nil)
 						end
 						#@current_buffer_index = @current_buffer_index + 1
