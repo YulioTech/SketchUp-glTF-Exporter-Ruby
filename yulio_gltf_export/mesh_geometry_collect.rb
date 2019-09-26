@@ -372,6 +372,12 @@ module Yulio
 					# end
 
 					faces.each { |face|
+						# Lev: apprently, some faces can be somehow deleted between the time we collate them and the time we reference/triangulate them.
+						# Will need to look into this in more detail in the future (or perform triangulation in place into a single mesh, at the expense of some speed).
+						if (face.deleted? == true)
+							next
+						end
+
 						mesh = face.mesh(flags) 
 					 		mesh.transform! transformation
 						
@@ -423,9 +429,9 @@ module Yulio
 							# 	idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
 							# 	idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
 							# else
-								idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-								idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
-								idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
 							#end
 							
 					 	end
@@ -461,6 +467,12 @@ module Yulio
 					end
 
 					faces.each { |face|
+						# Lev: apprently, some faces can be somehow deleted between the time we collate them and the time we reference/triangulate them.
+						# Will need to look into this in more detail in the future (or perform triangulation in place into a single mesh, at the expense of some speed).
+						if (face.deleted? == true)
+							next
+						end
+						
 						mesh = face.mesh(flags) 
 						mesh.transform! transformation
 
@@ -507,9 +519,9 @@ module Yulio
 							# 	idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
 							# 	idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
 							# else
-								idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-								idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
-								idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
 							#end
 							
 					 	end
