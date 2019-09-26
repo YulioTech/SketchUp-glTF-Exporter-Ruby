@@ -379,14 +379,13 @@ module Yulio
 						end
 
 						mesh = face.mesh(flags) 
+	
+						det = 1.0
+					 	if (@use_matrix == false)
 					 		mesh.transform! transformation
-						
-					 	# det = 1.0
-					 	# if (@use_matrix == false)
-					 	# 	mesh.transform! transformation
-					 	# 	a = transformation.to_a
-					 	# 	det = determinant(a)
-					 	# end
+					 		a = transformation.to_a
+					 		det = determinant(a)
+					 	end
 						
 					 	#has_texture = material_has_texture(group,face)
 
@@ -423,16 +422,16 @@ module Yulio
 							# 	@isWarning = true
 							# end
 							
-							# if (det < 0.0)
-							# 	# reverse the winding order
-							# 	idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
-							# 	idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-							# 	idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
-							# else
+							if (det < 0.0)
+								# reverse the winding order
+								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+							else
 								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
 								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
 								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
-							#end
+							end
 							
 					 	end
 					}
@@ -474,14 +473,13 @@ module Yulio
 						end
 						
 						mesh = face.mesh(flags) 
-						mesh.transform! transformation
 
-					 	# det = 1.0
-					 	# if (@use_matrix == false)
-					 	# 	mesh.transform! transformation
-					 	# 	a = transformation.to_a
-					 	# 	det = determinant(a)
-					 	# end
+					 	det = 1.0
+					 	if (@use_matrix == false)
+					 		mesh.transform! transformation
+					 		a = transformation.to_a
+					 		det = determinant(a)
+					 	end
 						
 					 	#has_texture = material_has_texture(group,face)
 
@@ -513,16 +511,16 @@ module Yulio
 							# 	@isWarning = true
 							# end
 							
-							# if (det < 0.0)
-							# 	# reverse the winding order
-							# 	idx1 = @mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
-							# 	idx0 = @mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-							# 	idx2 = @mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
-							# else
+							if (det < 0.0)
+								# reverse the winding order
+								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+							else
 								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
 								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
 								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
-							#end
+							end
 							
 					 	end
 					}
