@@ -38,13 +38,13 @@ module Yulio
 				@defaultMaterial = -1
 			end
 			
-			attr_reader :materials 
+			attr_accessor :materials 
 
 			def set_microsoft_mode(is_microsoft)
 				#@is_microsoft = is_microsoft
 			end
 			
-			def add_material_node(name,r,g,b,a,metallic_factor,roughness_factor,double_sided,texture_id)
+			def add_material_node(name, r,g,b,a, metallic_factor, roughness_factor, is_front_face, is_double_sided, texture_id)
 				# Paint3D requires a material name even though it is not required according to glTF spec...
 				#name = nil
 				#if @is_microsoft
@@ -75,11 +75,11 @@ module Yulio
 					},
 				}
 
-				if texture_id != nil
+				if (texture_id != nil)
 					# Lev: in SU when a texture is used in a material, its pixel values (including the alpha) are multipled by the base color values (thus providing the mechanism for linear RGBA blending between both).
 					# This matches nicely with the way the glTF 2.0 spec (https://github.com/KhronosGroup/glTF/tree/master/specification/2.0) defines the similar scenario:
 					# "If both factors and textures are present the factor value acts as a linear multiplier for the corresponding texture values."
-					# So the behavior below has to be the one of adding "baseColorTexture" property to the "pbrMetallicRoughness", rather than overwriting the "baseColorFactor" added above.
+					# So the behavior below has to be the one of adding "baseColorTexture" property to the "pbrMetallicRoughness", rather than re-initlaizing the object and overwriting the "baseColorFactor" added above.
 					material["pbrMetallicRoughness"]["baseColorTexture"] = { "index" => texture_id } 
 					
 					#if @is_microsoft == true
@@ -126,10 +126,10 @@ module Yulio
 					end
 					
 					if name.include? 'doubleSided=true'
-						double_sided = true
+						is_double_sided = true
 					end
 					if name.include? 'doubleSided=false'
-						double_sided = false
+						is_double_sided = false
 					end
 					
 					if name.include? 'emissive='
@@ -157,13 +157,15 @@ module Yulio
 					material["pbrMetallicRoughness"]["roughnessFactor"] = roughness_factor
 				end
 				
-				if double_sided
+				if (is_double_sided)
 					material["doubleSided"] = true
 				end
+
 				if(a < 1.0)
 					material["alphaMode"] = "BLEND"
 				end
-				if texture_id != nil
+
+				if (texture_id != nil)
 					# also set blend mode if it is a texture, as the texture may contain transparency
 					material["alphaMode"] = "BLEND"
 				end
@@ -187,7 +189,7 @@ module Yulio
 				r = material.color.red / 255.0
 				g = material.color.green / 255.0
 				b = material.color.blue / 255.0
-				return add_material_node(name, r,g,b,a, defaultMetallicFactor,defaultRoughnessFactor,false, nil)
+				return add_material_node(name, r,g,b,a, defaultMetallicFactor, defaultRoughnessFactor, true, false, nil)
 			end
 			
 			def get_material_attribute(material, dictionaryName, attributeName, defaultValue)
@@ -202,9 +204,7 @@ module Yulio
 			end
 			
 			# Add a material from a face, return the index for the new or existing material
-			def add_material(face)
-				
-				material = face.material
+			def add_material(face, material, is_front_face, is_double_sided)
 				
 				index = @materials_hash[material]
 				
@@ -213,25 +213,11 @@ module Yulio
 				end
 
 				if (material == nil)
-					if @defaultMaterial == -1
+					if (@defaultMaterial == -1)
 						#@defaultMaterial = add_material_node("default material",0.5,0.5,0.75,1.0, 0.1,0.5,true,nil)
-						@defaultMaterial = add_material_node("default material",1,1,1,1.0, 0.1,0.5,true,nil) #Use white (not blue) as a default material
+						@defaultMaterial = add_material_node("default material", 1.0,1.0,1.0,1.0, 0.1, 0.5, true, true, nil) #Use white (not blue) as a default material
 					end
 					return @defaultMaterial
-				end
-				
-				double_sided = false
-				if face.class == Sketchup::Face 	# 'face' might be an entity such as group or component
-
-					#puts "FRONT face material: " + face.material.name
-					#puts "r:" + face.material.color.red.to_s + " g:" + face.material.color.green.to_s + " b:" + face.material.color.blue.to_s + " a:" + face.material.alpha.to_s 
-
-					if face.back_material != nil
-						double_sided = true
-
-						#puts "BACK face material: " + face.back_material.name
-						#puts "r:" + face.back_material.color.red.to_s + " g:" + face.back_material.color.green.to_s + " b:" + face.back_material.color.blue.to_s + " a:" + face.back_material.alpha.to_s 
-					end
 				end
 				
 				metallicFactor = get_material_attribute(material, 'pbr','metallicFactor',0.1)
@@ -239,7 +225,7 @@ module Yulio
 				
 				@materials_hash[material] = @materials.length
 				
-				name = face.material.display_name
+				name = material.display_name
 				#puts 'Material display name: ' + name
 
 				a = material.alpha
@@ -270,11 +256,11 @@ module Yulio
 				end
 				
 				if (material.texture != nil)
-					texture_id = @textures.add_texture(face)
-					return add_material_node(name, r,g,b,a, metallicFactor, roughnessFactor, double_sided, texture_id)
+					texture_id = @textures.add_texture(face, material, is_front_face)
+					return add_material_node(name, r,g,b,a, metallicFactor, roughnessFactor, is_front_face, is_double_sided, texture_id)
 				end
 
-				return add_material_node(name, r,g,b,a, metallicFactor, roughnessFactor, double_sided, nil)
+				return add_material_node(name, r,g,b,a, metallicFactor, roughnessFactor, is_front_face, is_double_sided, nil)
 			end
 
 		end

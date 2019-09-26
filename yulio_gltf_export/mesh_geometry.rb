@@ -98,17 +98,16 @@ module Yulio
 			attr_reader :meshes_data
 			attr_reader :vertex_count
 
-			def add_geometry(mesh_id, material_id, x,y,z, nx,ny,nz, uvx,uvy, has_texture)
-			
-				if @meshes_data[mesh_id] == nil
-					@meshes_data[mesh_id] = {}
+			def init_geometry(material_id, has_texture)
+				if (@meshes_data[material_id] == nil)
+					@meshes_data[material_id] = MeshData.new(has_texture)
+				end
 				end
 
-				if (@meshes_data[mesh_id][material_id] == nil)
-					@meshes_data[mesh_id][material_id] = MeshData.new(has_texture)
-				end
-
-				index, is_new = @meshes_data[mesh_id][material_id].add_vertex(x,y,z, nx,ny,nz, uvx,uvy)
+			# Lev: make sure the @meshes_data[material_id] is not nil by calling the init_geometry before any calls to add_geometry are made!
+			# These were separete into 2 differnt functions for performance reasons.
+			def add_geometry(material_id, x,y,z, nx,ny,nz, uvx,uvy, has_texture)
+				index, is_new = @meshes_data[material_id].add_vertex(x,y,z, nx,ny,nz, uvx,uvy)
 				#if (is_new)
 					@vertex_count = @vertex_count  + 1
 				#end

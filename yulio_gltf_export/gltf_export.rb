@@ -90,10 +90,6 @@ module Yulio
 				@mesh_geometry_collect = MeshGeometryCollect.new(@nodes,@meshes,@materials,@mesh_geometry,@use_matrix,@errors)
 			end
 			
-			def exportWithMatrix(is_binary, is_microsoft, filename)
-				@use_matrix = true
-			end
-			
 			def exportRecursive(path)
 					
 				#puts path
@@ -135,6 +131,26 @@ module Yulio
 				end
 			end
 			
+			# def count_faces(entity, faces)
+			# 	faces += 1 if entity.is_a?(Sketchup::Face)
+			# 	if entity.is_a?(Sketchup::ComponentInstance) || entity.is_a?(Sketchup::Group)
+			# 		entity.definition.entities.each do |ent|
+			# 			faces = count_faces(ent, faces)
+			# 		end
+			# 	end
+			# 	return faces
+			# end
+			  
+			def get_scene_face_count(model)
+				# Lev: a custom recursive version
+				#face_count = 0
+				#model.entities.each { |ent| face_count = count_faces(ent, face_count) }
+				#return face_count
+
+				# Lev: a built-in SU version
+				return model.number_faces
+			end
+
 			def export(is_binary, is_microsoft, filename)
 				@is_microsoft = is_microsoft
 				@nodes.set_microsoft_mode(is_microsoft)
@@ -190,6 +206,9 @@ module Yulio
 					puts "Profiling started at " + Time.now.getutc.to_s + " for " + filename
 					file.write("Profiling started at " + Time.now.getutc.to_s + " for " + filename + "\n")
 					end
+
+					# Lev: output the message below to make sure we're executing the script from the right folder
+					#puts 'THIS IS A DEV VERSION!!!'
 					#<-
 
 					#Test code ->
@@ -200,10 +219,31 @@ module Yulio
 				
 					#puts 'Collating geometry and materials'
 					root_node_id = @nodes.add_node('root', matrix, @use_matrix)
+
+					# Lev: use the root node for all of the geometry
+					mesh_id = @meshes.add_mesh(nil)
+					@nodes.add_mesh(root_node_id, mesh_id)
+
+					# Lev: get the scene's total face count
+					#face_count = get_scene_face_count(model)
+					#puts 'Scene face count: ' + face_count.to_s
+
 					@mesh_geometry_collect.collate_geometry(root_node_id, matrix, model.active_entities, nil, nil)
 					
+					#puts 'SCENE GRAPH TRAVERSAL IS COMPLETE!!!'
+
 					#puts 'Generating Buffers'
+					vertex_count = @mesh_geometry.vertex_count
 					index_count = prepare_buffers_for_writing()
+					# Lev: for testing
+					#index_count = 0
+
+					# Lev: release objects that are no longer needed
+					#@mesh_geometry = nil
+					#@mesh_geometry_collect = nil
+					#GC.start
+
+					puts 'JSON BUFFER IS READY!!!'
 					
 					#puts 'Writing to file'
 					@cameras.add_camera_nodes
@@ -211,7 +251,7 @@ module Yulio
 					asset = {
 						"version" => "2.0",
 						"minVersion" => "2.0", #Min version required to load the file (optional field)
-						"generator" => "Sketchup glTF Exporter v2.2.2 by Yulio Technogies Inc."
+						"generator" => "Sketchup glTF Exporter v2.3.0 by Yulio Technogies Inc."
 					}
 					
 					# set the glTF copyright field, use model.description
@@ -270,7 +310,7 @@ module Yulio
 					#Test code ->
 					ending = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 					elapsed = ending - starting
-					puts "glTF export to " + filename + " took " + elapsed.to_s + " seconds"
+					puts "glTF export to \'" + filename + "\' took " + elapsed.to_s + " seconds"
 					#return
 					#<-
 
@@ -302,7 +342,7 @@ module Yulio
 					summary << "\n " + TRANSLATE["buffers"] + ": " + export["buffers"].length.to_s
 					summary << "\n"
 					summary << "\n" + TRANSLATE["triangles"] + ": " + (index_count/3).to_s
-					summary << "\n" + TRANSLATE["vertices"] + ": " + (@mesh_geometry.vertex_count).to_s
+					summary << "\n" + TRANSLATE["vertices"] + ": " + vertex_count.to_s
 					summary << "\nPath: "+ filename
 					summary << "\n"
 					@errors.each { |error|
@@ -326,7 +366,6 @@ module Yulio
 				end
 			end
 
-			
 			def write_gltf(filename, export)
 				export["buffers"] = @buffers.encode_buffers()
 				json = JSON.pretty_generate(export)
@@ -335,10 +374,6 @@ module Yulio
 				file.close()
 			end
 			
-			#total length:3345884
-			#buffer length:3216464
-			#json length:129392
-
 			def write_glb(filename, export)
 				buffers, bins = @buffers.get_buffers()
 				export["buffers"] = buffers
@@ -485,39 +520,40 @@ module Yulio
 				#puts 'Preparing all the buffers, bufferviews, accessors, etc. to be written to the output file.'
 
 				index_count = 0
+				# Lev: now we have only one mesh in a scene
+				mesh_id = 0
 
-				@mesh_geometry.meshes_data.each_key { |mesh_id|
-					@mesh_geometry.meshes_data[mesh_id].each_key { |material_id|
-						mesh_data = @mesh_geometry.meshes_data[mesh_id][material_id]
-						position_buffer_view_index = pack_buffer(mesh_data.positions, GL_FLOAT, 12, @current_buffer_index)
-						normals_buffer_view_index = pack_buffer(mesh_data.normals, GL_FLOAT, 12, @current_buffer_index)
+				@mesh_geometry.meshes_data.each_key { |material_id|
 
-						minp,maxp = write_min_max_vec3(mesh_data.positions)
+					mesh_data = @mesh_geometry.meshes_data[material_id]
+					position_buffer_view_index = pack_buffer(mesh_data.positions, GL_FLOAT, 12, @current_buffer_index)
+					normals_buffer_view_index = pack_buffer(mesh_data.normals, GL_FLOAT, 12, @current_buffer_index)
 
-						positions_accessor = @accessors.add_accessor(position_buffer_view_index,0,GL_FLOAT,mesh_data.positions.length / 3,"VEC3",minp,maxp)
-						normals_accessor = @accessors.add_accessor(normals_buffer_view_index,0,GL_FLOAT,mesh_data.normals.length / 3,"VEC3",nil,nil)
+					minp,maxp = write_min_max_vec3(mesh_data.positions)
 
-						if (mesh_data.has_texture)
-							uvs_buffer_view_index = pack_buffer(mesh_data.uvs, GL_FLOAT, 8, @current_buffer_index)
-							mint,maxt = write_min_max_vec2(mesh_data.uvs)
-							uvs_accessor = @accessors.add_accessor(uvs_buffer_view_index,0,GL_FLOAT,mesh_data.uvs.length / 2,"VEC2",nil,nil)
-						end
-						#@current_buffer_index = @current_buffer_index + 1
+					positions_accessor = @accessors.add_accessor(position_buffer_view_index,0,GL_FLOAT,mesh_data.positions.length / 3,"VEC3",minp,maxp)
+					normals_accessor = @accessors.add_accessor(normals_buffer_view_index,0,GL_FLOAT,mesh_data.normals.length / 3,"VEC3",nil,nil)
 
-						index_count = index_count + mesh_data.indices.length
+					if (mesh_data.has_texture)
+						uvs_buffer_view_index = pack_buffer(mesh_data.uvs, GL_FLOAT, 8, @current_buffer_index)
+						#mint,maxt = write_min_max_vec2(mesh_data.uvs)
+						uvs_accessor = @accessors.add_accessor(uvs_buffer_view_index,0,GL_FLOAT,mesh_data.uvs.length / 2,"VEC2",nil,nil)
+					end
+					#@current_buffer_index = @current_buffer_index + 1
 
-						#puts "Adding buffer view for " + mesh_data.indices.length.to_s + " indices for mesh with ID " + mesh_id.to_s + " and material ID " + material_id.to_s
-						buffer_view_index,index_type,byte_count = add_buffer_view_for_indices(mesh_data.indices, @current_buffer_index)
+					index_count = index_count + mesh_data.indices.length
 
-						if (mesh_data.has_texture)
-							iAccess = @accessors.add_accessor(buffer_view_index, 0 * byte_count, index_type, mesh_data.indices.size, "SCALAR", nil, nil)
-							@meshes.add_mesh_primitive(mesh_id, positions_accessor, normals_accessor, uvs_accessor, iAccess, material_id)
-						else
-							iAccess = @accessors.add_accessor(buffer_view_index, 0 * byte_count, index_type, mesh_data.indices.size, "SCALAR", nil, nil)
-							@meshes.add_mesh_primitive(mesh_id, positions_accessor, normals_accessor, nil, iAccess, material_id)
-						end
+					#puts "Adding buffer view for " + mesh_data.indices.length.to_s + " indices for mesh with ID " + mesh_id.to_s + " and material ID " + material_id.to_s
+					buffer_view_index,index_type,byte_count = add_buffer_view_for_indices(mesh_data.indices, @current_buffer_index)
 
-					}
+					if (mesh_data.has_texture)
+						iAccess = @accessors.add_accessor(buffer_view_index, 0 * byte_count, index_type, mesh_data.indices.size, "SCALAR", nil, nil)
+						@meshes.add_mesh_primitive(mesh_id, positions_accessor, normals_accessor, uvs_accessor, iAccess, material_id)
+					else
+						iAccess = @accessors.add_accessor(buffer_view_index, 0 * byte_count, index_type, mesh_data.indices.size, "SCALAR", nil, nil)
+						@meshes.add_mesh_primitive(mesh_id, positions_accessor, normals_accessor, nil, iAccess, material_id)
+					end
+
 				}
 
 				return index_count
