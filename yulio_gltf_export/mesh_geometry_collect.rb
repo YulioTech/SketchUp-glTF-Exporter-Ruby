@@ -511,14 +511,14 @@ module Yulio
 					 		p2 = mesh.point_at(idx2)
 						
 							# Lev: reverse the direction of the normals 
-					 		n0 = mesh.normal_at(idx0).reverse
-					 		n1 = mesh.normal_at(idx1).reverse
-							n2 = mesh.normal_at(idx2).reverse
+					 		n0 = mesh.normal_at(idx0).normalize.reverse
+					 		n1 = mesh.normal_at(idx1).normalize.reverse
+							n2 = mesh.normal_at(idx2).normalize.reverse
 							 
-							# Lev: offset the back faces by teh scaled offset amount in the direction of their normals to avoid z-fighting in rendering pipelines where back-face culling is not supported (e.g. Iray)
-							p0 = p0.offset(scaled_offset)
-							p1 = p1.offset(scaled_offset)
-							p2 = p2.offset(scaled_offset)
+							# Lev: offset the back faces by the scaled offset amount in the direction of their normals to avoid z-fighting in rendering pipelines where back-face culling is not supported (e.g. Iray)
+							p0 = Geom::Point3d.new(p0.x + n0.x * scaled_offset.x, p0.y + n0.y * scaled_offset.y, p0.z + n0.z * scaled_offset.z)
+							p1 = Geom::Point3d.new(p1.x + n1.x * scaled_offset.x, p1.y + n1.y * scaled_offset.y, p1.z + n1.z * scaled_offset.z)
+							p2 = Geom::Point3d.new(p2.x + n2.x * scaled_offset.x, p2.y + n2.y * scaled_offset.y, p2.z + n2.z * scaled_offset.z)
 
 							# Lev: get UVs for BACK faces
 					 		uvw0 = mesh.uv_at(idx0, false)
