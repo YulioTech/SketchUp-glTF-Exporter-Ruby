@@ -53,11 +53,11 @@ module Yulio
             end
 
             def create_camera_matrix(camera)
-                originM=Geom::Point3d.new(camera.eye.x.to_m,camera.eye.y.to_m,camera.eye.z.to_m)
-                matrix=Geom::Transformation.axes(originM,camera.xaxis,camera.yaxis,camera.zaxis.reverse)
+                originM = Geom::Point3d.new(camera.eye.x.to_m, camera.eye.y.to_m, camera.eye.z.to_m)
+                matrix = Geom::Transformation.axes(originM, camera.xaxis, camera.yaxis, camera.zaxis.reverse)
                 #temp=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
                 #tran=Geom::Transformation.new(temp)
-                #matrix=tran*matrix
+                #matrix = tran*matrix
                 return matrix.to_a
             end
 
@@ -71,7 +71,7 @@ module Yulio
                 
                 pages.each do |page|
                     name = page.label
-                    camera=align_camera_view(page.camera)
+                    camera = align_camera_view(page.camera)
                     matrix = create_camera_matrix(camera)
                     camera_id = add_camera_type(name + "_camera", camera.fov.degrees, (camera.aspect_ratio > 0.0 ? camera.aspect_ratio : 16.0/9.0))
                     node_id = @nodes.add_node(name, matrix, true)
@@ -107,11 +107,11 @@ module Yulio
             end
 
             def align_camera_view(camera)
-                angle=camera.direction.angle_between(Z_AXIS)
-                angle=angle*180/Math::PI-90
-                rotation=Geom::Transformation.rotation(camera.eye,camera.xaxis,(angle.degrees))
-                new_target=camera.target.transform(rotation)
-                return camera.set(camera.eye,new_target,Z_AXIS)
+                angle = camera.direction.angle_between(Z_AXIS)
+                angle = angle*180.0/Math::PI - 90.0
+                rotation = Geom::Transformation.rotation(camera.eye, camera.xaxis, (angle.degrees))
+                new_target = camera.target.transform(rotation)
+                return camera.set(camera.eye, new_target, Z_AXIS)
             end
         end
     end

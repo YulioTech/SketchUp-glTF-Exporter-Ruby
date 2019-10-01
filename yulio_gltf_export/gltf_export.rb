@@ -57,10 +57,10 @@ module Yulio
 			#main_menu.add_item(TRANSLATE['menuGlbMicrosoft']) { GltfExport.new.export(true,true,"") }
 			file_loaded(__FILE__)
 		end
-
+		
 		
 		class GltfExport
-		
+			
 			GL_UNSIGNEDBYTE = 5120
 			GL_UNSIGNEDSHORT = 5123
 			GL_FLOAT = 5126
@@ -71,7 +71,7 @@ module Yulio
 				@use_matrix = false
 				
 				@errors = []
-
+				
 				@current_buffer_index = 0
 				
 				# construct the needed objects
@@ -84,7 +84,7 @@ module Yulio
 				@textures = GltfTextures.new(@images)
 				@nodes = GltfNodes.new
 				@meshes = GltfMeshes.new
-				@cameras=GltfCameras.new(@nodes)
+				@cameras = GltfCameras.new(@nodes)
 				@materials = GltfMaterials.new(@textures)
 				@mesh_geometry = MeshGeometry.new
 				@mesh_geometry_collect = MeshGeometryCollect.new(@nodes,@meshes,@materials,@mesh_geometry,@use_matrix,@errors)
@@ -95,7 +95,7 @@ module Yulio
 			end
 			
 			def exportRecursive(path)
-					
+				
 				#puts path
 				#Dir.chdir(path)
 				#puts "next"
@@ -144,17 +144,48 @@ module Yulio
 			# 	end
 			# 	return faces
 			# end
-			  
+			
 			def get_scene_face_count(model)
 				# Lev: a custom recursive version
 				#face_count = 0
 				#model.entities.each { |ent| face_count = count_faces(ent, face_count) }
 				#return face_count
-
+				
 				# Lev: a built-in SU version
 				return model.number_faces
 			end
-
+			
+			def get_model_units()
+				opts = Sketchup.active_model.options["UnitsOptions"]
+				unit_format = opts["LengthFormat"]
+				if unit_format != Length::Decimal
+					if unit_format == Length::Fractional ||
+						unit_format == Length::Architectural
+						"INCHES" # Architectural or Fractional
+					elsif unit_format == Length::Engineering
+						"FEET"   # Engineering
+					else
+						"DEFAULT"
+					end
+				else # Decimal ( unit_format == 0 )
+					case opts["LengthUnit"]
+					when Length::Inches
+						"INCHES"
+					when Length::Feet
+						"FEET"
+					when Length::Centimeter
+						"CENTIMETERS"
+					when Length::Millimeter
+						"MILLIMETERS"
+					when Length::Meter
+						"METERS"
+					else
+						"DEFAULT"
+					end
+				end
+			end
+			
+			
 			def export(is_binary, is_microsoft, filename)
 				@is_microsoft = is_microsoft
 				@nodes.set_microsoft_mode(is_microsoft)
@@ -174,7 +205,7 @@ module Yulio
 				filePrompt = false
 				
 				if filename == ""
-				
+					
 					filePrompt = true
 					model_filename = File.basename(model.path)
 					if model_filename != ""
@@ -200,29 +231,32 @@ module Yulio
 				end
 				
 				begin
-			
+					
 					#Test code ->
 					enable_profiler = false
 					if enable_profiler
-					mode = "wb"
-					file = File.open("e:/Downloads/glTF_exporter_profile.txt", mode)
-					Profiler__::start_profile
-					puts "Profiling started at " + Time.now.getutc.to_s + " for " + filename
-					file.write("Profiling started at " + Time.now.getutc.to_s + " for " + filename + "\n")
+						mode = "wb"
+						file = File.open("e:/Downloads/glTF_exporter_profile.txt", mode)
+						Profiler__::start_profile
+						puts "Profiling started at " + Time.now.getutc.to_s + " for " + filename
+						file.write("Profiling started at " + Time.now.getutc.to_s + " for " + filename + "\n")
 					end
 					#<-
-
+					
 					#Test code ->
 					starting = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 					#<-
-
+					
 					matrix = get_default_matrix()
-				
+					
 					# Lev: get the scene's total face count (might be used later to limit exporting to moderately sized scenes only)
 					#puts 'Scene face count: ' + get_scene_face_count(model).to_s
-
-					#puts 'Collating geometry and materials'
+					
+					# Lev: the scene's length units
+					#puts "Scene units: " + get_model_units()
+					
 					root_node_id = @nodes.add_node('root', matrix, @use_matrix)
+					#puts 'Collating geometry and materials'
 					@mesh_geometry_collect.collate_geometry(root_node_id, matrix, model.active_entities, nil, nil)
 					
 					#puts 'Generating Buffers'
@@ -247,7 +281,7 @@ module Yulio
 					scenes =
 					[
 						{
-						"nodes" => [0]
+							"nodes" => [0]
 						}
 					]
 					
@@ -268,7 +302,7 @@ module Yulio
 					if (@images.images.length > 0)
 						export["images"] = @images.images
 					end
-
+					
 					if (@textures.textures.length > 0)
 						export["textures"] = @textures.textures
 						#All textures are using the default 0-indexed sampler in the current implementation
@@ -296,20 +330,20 @@ module Yulio
 					puts "glTF export to \'" + filename + "\' took " + elapsed.to_s + " seconds"
 					#return
 					#<-
-
+					
 					#Test code ->
 					if enable_profiler
-					puts "Profiling stopped at " + Time.now.getutc.to_s
-					file.write("Profiling stopped at " + Time.now.getutc.to_s + "\n----------------------------------------------------------------\n")
-					Profiler__::stop_profile
-					#Profiler__::print_profile($stderr)
-					Profiler__::print_profile(file)
-
-					#puts file.read
-					file.close()
+						puts "Profiling stopped at " + Time.now.getutc.to_s
+						file.write("Profiling stopped at " + Time.now.getutc.to_s + "\n----------------------------------------------------------------\n")
+						Profiler__::stop_profile
+						#Profiler__::print_profile($stderr)
+						Profiler__::print_profile(file)
+						
+						#puts file.read
+						file.close()
 					end
 					#<-
-				
+					
 					summary = TRANSLATE["exportSummary"]
 					summary << "\n"
 					
@@ -345,7 +379,7 @@ module Yulio
 						UI.messagebox(msg, MB_MULTILINE, TRANSLATE["title"])
 					end
 					return msg
-
+					
 				end
 			end
 			
@@ -368,7 +402,7 @@ module Yulio
 					json = json << ' '
 					json_len = json_len + 1
 				end
-
+				
 				bins_length = 0
 				bins.each { |bin|
 					while(bin.length % 4 != 0)
@@ -380,7 +414,7 @@ module Yulio
 				header = 0x46546C67
 				jsonContent = 0x4E4F534A
 				binaryBuffer = 0x004E4942
-			
+				
 				headerArray = []
 				headerArray.push(header)
 				headerArray.push(2)
@@ -424,7 +458,7 @@ module Yulio
 				trans = trans * Geom::Transformation.scaling(0.0254,0.0254,0.0254)
 				return trans
 			end
-
+			
 			# check if any index value requires a 32-bit index array instead of a 16-bit index arrays
 			def get_index_size(indices)
 				index_size = 2
@@ -501,32 +535,32 @@ module Yulio
 			
 			def prepare_buffers_for_writing()
 				#puts 'Preparing all the buffers, bufferviews, accessors, etc. to be written to the output file.'
-
+				
 				index_count = 0
-
+				
 				@mesh_geometry.meshes_data.each_key { |mesh_id|
 					@mesh_geometry.meshes_data[mesh_id].each_key { |material_id|
 						mesh_data = @mesh_geometry.meshes_data[mesh_id][material_id]
 						position_buffer_view_index = pack_buffer(mesh_data.positions, GL_FLOAT, 12, @current_buffer_index)
 						normals_buffer_view_index = pack_buffer(mesh_data.normals, GL_FLOAT, 12, @current_buffer_index)
-
+						
 						minp,maxp = write_min_max_vec3(mesh_data.positions)
-
+						
 						positions_accessor = @accessors.add_accessor(position_buffer_view_index,0,GL_FLOAT,mesh_data.positions.length / 3,"VEC3",minp,maxp)
 						normals_accessor = @accessors.add_accessor(normals_buffer_view_index,0,GL_FLOAT,mesh_data.normals.length / 3,"VEC3",nil,nil)
-
+						
 						if (mesh_data.has_texture)
 							uvs_buffer_view_index = pack_buffer(mesh_data.uvs, GL_FLOAT, 8, @current_buffer_index)
 							#mint,maxt = write_min_max_vec2(mesh_data.uvs)
 							uvs_accessor = @accessors.add_accessor(uvs_buffer_view_index,0,GL_FLOAT,mesh_data.uvs.length / 2,"VEC2",nil,nil)
 						end
 						#@current_buffer_index = @current_buffer_index + 1
-
+						
 						index_count = index_count + mesh_data.indices.length
-
+						
 						#puts "Adding buffer view for " + mesh_data.indices.length.to_s + " indices for mesh with ID " + mesh_id.to_s + " and material ID " + material_id.to_s
 						buffer_view_index,index_type,byte_count = add_buffer_view_for_indices(mesh_data.indices, @current_buffer_index)
-
+						
 						if (mesh_data.has_texture)
 							iAccess = @accessors.add_accessor(buffer_view_index, 0 * byte_count, index_type, mesh_data.indices.size, "SCALAR", nil, nil)
 							@meshes.add_mesh_primitive(mesh_id, positions_accessor, normals_accessor, uvs_accessor, iAccess, material_id)
@@ -534,13 +568,13 @@ module Yulio
 							iAccess = @accessors.add_accessor(buffer_view_index, 0 * byte_count, index_type, mesh_data.indices.size, "SCALAR", nil, nil)
 							@meshes.add_mesh_primitive(mesh_id, positions_accessor, normals_accessor, nil, iAccess, material_id)
 						end
-
+						
 					}
 				}
-
+				
 				return index_count
 			end
-
+			
 			
 			# the glTF validator is very fussy about the minimum and maximum values, so round up/down as appropriate.
 			def floor2(n,exp)
@@ -588,7 +622,7 @@ module Yulio
 				min_z,max_z = minmax(positions,2,3,MINMAX_PRECISION)
 				return [min_x,min_y,min_z],[max_x,max_y,max_z]
 			end
-
+			
 			# for the texture (UV) accessors, get the minimum and maximum values
 			def write_min_max_vec2(uv)
 				minU,maxU = minmax(uv,0,2,MINMAX_PRECISION)
@@ -667,7 +701,7 @@ module Yulio
 				return [min_x],[max_x]
 			end
 			
-
+			
 		end
 	end
 end

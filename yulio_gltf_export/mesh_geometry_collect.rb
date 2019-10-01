@@ -497,10 +497,17 @@ module Yulio
 					 		p1 = mesh.point_at(idx1)
 					 		p2 = mesh.point_at(idx2)
 						
-					 		n0 = mesh.normal_at(idx0)
-					 		n1 = mesh.normal_at(idx1)
-					 		n2 = mesh.normal_at(idx2)
-						
+							# Lev: reverse the direction of the normals 
+					 		n0 = mesh.normal_at(idx0).reverse
+					 		n1 = mesh.normal_at(idx1).reverse
+							n2 = mesh.normal_at(idx2).reverse
+							 
+							# Lev: offset the back faces by 0.5 mm in the direction of their normals to avoid z-fighting in rendering pipelines where back-face culling is not supported (e.g. Iray)
+							offset = 0.019685 # 0.5 mm expressed in inches since in SketchUp internally everything is expressed in inches 
+							p0 = p0.offset(n0, offset)
+							p1 = p1.offset(n1, offset)
+							p2 = p2.offset(n2, offset)
+
 							# Lev: get UVs for BACK faces
 					 		uvw0 = mesh.uv_at(idx0, false)
 					 		uvw1 = mesh.uv_at(idx1, false)
@@ -512,15 +519,14 @@ module Yulio
 							# end
 							
 							if (det < 0.0)
-								# Lev: reverse the winding order and the direction of the normals
-								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, -n1.x,-n1.y,-n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
-								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, -n0.x,-n0.y,-n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, -n2.x,-n2.y,-n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+								# Lev: reverse the winding order
+								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
 							else
-								# Lev: reverse the direction of the normals 
-								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, -n0.x,-n0.y,-n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
-								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, -n1.x,-n1.y,-n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
-								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, -n2.x,-n2.y,-n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p0.x,p0.y,p0.z, n0.x,n0.y,n0.z, uvw0[0], 1.0-uvw0[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p1.x,p1.y,p1.z, n1.x,n1.y,n1.z, uvw1[0], 1.0-uvw1[1], has_texture)
+								@mesh_geometry.add_geometry(mesh_id, material_id, p2.x,p2.y,p2.z, n2.x,n2.y,n2.z, uvw2[0], 1.0-uvw2[1], has_texture)
 							end
 							
 					 	end
