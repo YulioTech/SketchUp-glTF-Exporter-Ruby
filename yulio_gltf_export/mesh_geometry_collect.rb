@@ -30,6 +30,7 @@ module Yulio
 		class MeshGeometryCollect
 		
 			def initialize(nodes,meshes,materials,mesh_geometry,use_matrix,errors)
+				@back_face_offset =  0.019685 # 0.5 mm expressed in inches since in SketchUp internally everything is expressed in inches by default 
 				@warning = false
 				@errors = errors
 				
@@ -41,7 +42,8 @@ module Yulio
 				@use_matrix = use_matrix
 				@mesh_per_material = false
 			end
-			
+
+			attr_accessor :back_face_offset
 
 #Something for @danrathbun or actually anyone with some elementary ruby programming experience in Sketchup.
 			
@@ -336,6 +338,17 @@ module Yulio
 				kUVQBack = 2
 				kNormals = 4
 
+				#puts 'Transformation: ' + transformation.to_s
+				scale_x = Geom::Vector3d.new(transformation.to_a.values_at(0..2)).length
+				scale_y = Geom::Vector3d.new(transformation.to_a.values_at(0..2)).length
+				scale_z = Geom::Vector3d.new(transformation.to_a.values_at(0..2)).length
+				scaled_offset = Geom::Vector3d.new(scale_x * back_face_offset, scale_y * back_face_offset, scale_z * back_face_offset)
+				#puts 'Scaled offset: ' + scaled_offset.to_s
+				#puts 'row 0: ' + tr.to_a.values_at(0..3).to_s
+				#puts 'row 1: ' + tr.to_a.values_at(4..7).to_s
+				#puts 'row 2: ' + tr.to_a.values_at(8..11).to_s
+				#puts 'row 3: ' + tr.to_a.values_at(12..15).to_s
+
 				# Lev: process the FRONT faces
 				flags = kPoints | kUVQFront | kNormals
 				front_face_by_material.each_key { |material_id|
@@ -476,7 +489,7 @@ module Yulio
 
 					 	det = 1.0
 					 	if (@use_matrix == false)
-					 		mesh.transform! transformation
+							mesh.transform! transformation
 					 		a = transformation.to_a
 					 		det = determinant(a)
 					 	end
@@ -502,11 +515,10 @@ module Yulio
 					 		n1 = mesh.normal_at(idx1).reverse
 							n2 = mesh.normal_at(idx2).reverse
 							 
-							# Lev: offset the back faces by 0.5 mm in the direction of their normals to avoid z-fighting in rendering pipelines where back-face culling is not supported (e.g. Iray)
-							offset = 0.019685 # 0.5 mm expressed in inches since in SketchUp internally everything is expressed in inches 
-							p0 = p0.offset(n0, offset)
-							p1 = p1.offset(n1, offset)
-							p2 = p2.offset(n2, offset)
+							# Lev: offset the back faces by teh scaled offset amount in the direction of their normals to avoid z-fighting in rendering pipelines where back-face culling is not supported (e.g. Iray)
+							p0 = p0.offset(scaled_offset)
+							p1 = p1.offset(scaled_offset)
+							p2 = p2.offset(scaled_offset)
 
 							# Lev: get UVs for BACK faces
 					 		uvw0 = mesh.uv_at(idx0, false)

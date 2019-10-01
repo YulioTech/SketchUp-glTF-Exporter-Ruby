@@ -185,7 +185,25 @@ module Yulio
 				end
 			end
 			
-			
+			def get_back_face_offset()
+				offset = 1.0
+				case get_model_units()
+				when "INCHES"
+					offset = 0.019685 # 0.5 mm expressed in inches since in SketchUp internally everything is expressed in inches by default
+				when "FEET"
+					offset = 0.00164042
+				when "CENTIMETERS"
+					offset = 0.05
+				when "MILLIMETERS"
+					offset = 0.5
+				when "METERS"
+					offset = 0.0005
+				else
+					offset = 0.019685
+				end
+				return offset
+			end
+
 			def export(is_binary, is_microsoft, filename)
 				@is_microsoft = is_microsoft
 				@nodes.set_microsoft_mode(is_microsoft)
@@ -254,6 +272,8 @@ module Yulio
 					
 					# Lev: the scene's length units
 					#puts "Scene units: " + get_model_units()
+					#@mesh_geometry_collect.back_face_offset = get_back_face_offset()
+					#puts "Back-face offset: " + @mesh_geometry_collect.back_face_offset.to_s
 					
 					root_node_id = @nodes.add_node('root', matrix, @use_matrix)
 					#puts 'Collating geometry and materials'
