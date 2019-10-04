@@ -203,12 +203,15 @@ module Yulio
 
 					if (e.class == Sketchup::Group)
 						#puts "e.class == Sketchup::Group"
+
 						group_node_id = @nodes.add_node(e.name, e.transformation, @use_matrix)
 						@nodes.add_child(nodeId, group_node_id)
+
 						trn = transformation * e.transformation
 						if @use_matrix
 							trn = e.transformation
 						end
+
 						if materialNotNil
 							collate_geometry(group_node_id, trn, e.entities, e, e)
 						else
@@ -218,10 +221,12 @@ module Yulio
 						#puts "e.class == Sketchup::ComponentInstance"
 						group_node_id = @nodes.add_node(e.definition.name, e.transformation, @use_matrix)
 						@nodes.add_child(nodeId, group_node_id)
+						
 						trn = transformation * e.transformation
 						if @use_matrix
 							trn = e.transformation
 						end
+
 						if materialNotNil
 							group_with_mat = e
 							collate_geometry(group_node_id, trn, e.definition.entities, e, e)
@@ -229,12 +234,16 @@ module Yulio
 							collate_geometry(group_node_id, trn, e.definition.entities, e, group_with_material)
 						end
 					elsif (e.class == Sketchup::Image)
+						#puts "e.class == Sketchup::Image"
+
 						# Lev: this is yet another weird thing about SU: you can have entities of the type Image, which have to be first exploded to create regular faces,
 						# that then can be processed with the rest of the faces in the scene.
 						# The only thing here is, we still need to confirm if the explosion operation adds the newly generated face entities to the end/bottom of the tree.
 						# If this is the case, we're all done here. If not, we'll have to traverse the new entities by hand.
 						entities = e.explode
 					elsif (e.class == Sketchup::Face)
+						# puts "e.class == Sketchup::Face"
+
 						face = e
 						faceWithMaterial = face
 						if !materialNotNil
@@ -340,8 +349,8 @@ module Yulio
 
 				#puts 'Transformation: ' + transformation.to_s
 				scale_x = Geom::Vector3d.new(transformation.to_a.values_at(0..2)).length
-				scale_y = Geom::Vector3d.new(transformation.to_a.values_at(0..2)).length
-				scale_z = Geom::Vector3d.new(transformation.to_a.values_at(0..2)).length
+				scale_y = Geom::Vector3d.new(transformation.to_a.values_at(4..6)).length
+				scale_z = Geom::Vector3d.new(transformation.to_a.values_at(8..10)).length
 				scaled_offset = Geom::Vector3d.new(scale_x * back_face_offset, scale_y * back_face_offset, scale_z * back_face_offset)
 				#puts 'Scaled offset: ' + scaled_offset.to_s
 				#puts 'row 0: ' + tr.to_a.values_at(0..3).to_s
